@@ -1,23 +1,19 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Windows.Data;
 
-namespace AudioExtractor.Converters
+namespace AudioExtractor.Converters;
+
+[ValueConversion(typeof(bool), typeof(bool))]
+public sealed class InverseBooleanConverter : IValueConverter
 {
-    [ValueConversion(typeof(bool), typeof(bool))]
-    class InverseBooleanConverter : IValueConverter
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (targetType != typeof(bool))
-                throw new InvalidOperationException("The target must be a boolean");
+        return value is bool boolValue && !boolValue;
+    }
 
-            return !(bool)value;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotSupportedException();
-        }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotSupportedException();
     }
 }

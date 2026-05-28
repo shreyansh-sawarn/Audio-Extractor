@@ -1,43 +1,56 @@
-﻿using System;
-using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+using System.Runtime.CompilerServices;
 
-namespace AudioExtractor.Models
+namespace AudioExtractor.Models;
+
+public sealed class InputItemModel : INotifyPropertyChanged
 {
-    class InputItemModel : DependencyObject
+    private string _status = "Queued";
+    private string? _errorMessage;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string FileName { get; set; } = string.Empty;
+    public string FileExtension { get; set; } = string.Empty;
+    public string ContainerDirectory { get; set; } = string.Empty;
+    public string FilePath { get; set; } = string.Empty;
+    public long FileSize { get; set; }
+    public string? OutputPath { get; set; }
+
+    public string Status
     {
-        public string FileName { get; set; }
-        public string FileExtension { get; set; }
-        public string ContainerDirectory { get; set; }
-        public string FilePath { get; set; }
-        public long FileSize { get; set; }
+        get => _status;
+        set => SetProperty(ref _status, value);
+    }
 
-        public bool Converted
-        {
-            get { return (bool)GetValue(ConvertedProperty); }
-            set { SetValue(ConvertedProperty, value); }
-        }
+    public string? ErrorMessage
+    {
+        get => _errorMessage;
+        set => SetProperty(ref _errorMessage, value);
+    }
 
-        public static readonly DependencyProperty ConvertedProperty =
-            DependencyProperty.Register("Converted", typeof(bool), typeof(InputItemModel), new PropertyMetadata(false));
+    public InputItemModel()
+    {
+    }
 
-        public InputItemModel()
-        {
-        }
+    public InputItemModel(string filePath)
+    {
+        var fileInfo = new FileInfo(filePath);
 
-        public InputItemModel(string filePath)
-        {
-            var fileInfo = new FileInfo(filePath);
+        FilePath = filePath;
+        FileName = Path.GetFileNameWithoutExtension(fileInfo.Name);
+        FileExtension = fileInfo.Extension.TrimStart('.').ToUpperInvariant();
+        ContainerDirectory = fileInfo.DirectoryName ?? string.Empty;
+        FileSize = fileInfo.Exists ? fileInfo.Length : 0;
+    }
 
-            FilePath = filePath;
-            FileName = Path.GetFileNameWithoutExtension(fileInfo.Name);
-            FileExtension = fileInfo.Extension.Remove(0, 1).ToUpper();
-            ContainerDirectory = fileInfo.Directory.FullName;
-            FileSize = fileInfo.Length;
-        }
+    private void SetProperty<T>(ref T storage, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (Equals(storage, value))
+            return;
+
+        storage = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

@@ -1,24 +1,23 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 
-namespace AudioExtractor.Converters
+namespace AudioExtractor.Converters;
+
+[ValueConversion(typeof(bool), typeof(Visibility))]
+public sealed class BooleanVisibilityConverter : IValueConverter
 {
-    [ValueConversion(typeof(bool), typeof(Visibility))]
-    class BooleanVisibilityConverter : IValueConverter
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (targetType != typeof(Visibility))
-                throw new InvalidOperationException("Target type must be Visibility");
+        if (value is not bool visible)
+            return Visibility.Collapsed;
 
-            return (bool)value ? Visibility.Visible : Visibility.Hidden;
-        }
+        return visible ? Visibility.Visible : Visibility.Collapsed;
+    }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotSupportedException();
     }
 }

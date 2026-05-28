@@ -1,112 +1,167 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 
-namespace AudioExtractor
+namespace AudioExtractor;
+
+public sealed class ConversionResult
 {
-    class MediaConversionEventArgs
+    public string InputPath { get; init; } = string.Empty;
+    public string OutputPath { get; init; } = string.Empty;
+    public bool Successful { get; init; }
+    public int? ExitCode { get; init; }
+    public string? ErrorMessage { get; init; }
+
+    public static ConversionResult Failed(string inputPath, string outputPath, string errorMessage, int? exitCode = null)
     {
-        public string FileName { get; private set; }
-        public bool Successful { get; private set; }
-
-        public MediaConversionEventArgs(string fileName)
+        return new ConversionResult
         {
-            FileName = fileName;
-            Successful = false;
-        }
+            InputPath = inputPath,
+            OutputPath = outputPath,
+            Successful = false,
+            ExitCode = exitCode,
+            ErrorMessage = errorMessage
+        };
+    }
+}
 
-        public MediaConversionEventArgs(string fileName, bool successful)
-        {
-            FileName = fileName;
-            Successful = successful;
-        }
+public sealed class MediaConverter
+{
+    private readonly string _targetDirectory;
+    private readonly string _ffmpegPath;
+
+    public MediaConverter(string targetDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(targetDirectory))
+            throw new ArgumentException("Target directory is required.", nameof(targetDirectory));
+
+        _targetDirectory = targetDirectory;
+        _ffmpegPath = ResolveFfmpegPath();
     }
 
-    public class ConversionResult
+    public bool IsFfmpegAvailable => File.Exists(_ffmpegPath) || _ffmpegPath == "ffmpeg";
+
+    public async Task<ConversionResult> ConvertFileAsync(string inputPath, CancellationToken cancellationToken = default)
     {
-        public bool Successful { get; set; }
-    }
-
-    class MediaConverter : DependencyObject
-    {
-        public delegate void ConversionStartedEvent(object sender, MediaConversionEventArgs e);
-        public delegate void ConversionFinishedEvent(object sender, MediaConversionEventArgs e);
-
-        public event ConversionStartedEvent ConversionStarted;
-        public event ConversionFinishedEvent ConversionFinished;
-
-        private readonly string m_targetDirectory;
-        private readonly string m_ffmpegPath;
-
-        public MediaConverter(string targetDirectory)
+        if (!File.Exists(inputPath))
         {
-            if (!Directory.Exists(targetDirectory))
-                throw new ArgumentException("Target directory doesn't exist");
-
-            m_targetDirectory = targetDirectory;
-
-            m_ffmpegPath = Path.Combine(
-                Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), 
-                "3rdparty", 
-                "ffmpeg.exe"
-            );
+            return ConversionResult.Failed(inputPath, string.Empty, "Input file no longer exists.");
         }
 
-        public async Task<ConversionResult[]> ConvertFiles(string[] fileList)
+        Directory.CreateDirectory(_targetDirectory);
+
+        if (!IsFfmpegAvailable)
         {
-            var tasks = fileList.Select((path) => ConvertFile(path));
-            return await Task.WhenAll(tasks);
+            return ConversionResult.Failed(inputPath, string.Empty, $"ffmpeg was not found at '{_ffmpegPath}'.");
         }
 
-        public async Task<ConversionResult> ConvertFile(string path)
+        var outputPath = CreateUniqueOutputPath(inputPath);
+        var startInfo = new ProcessStartInfo
         {
-            var task = new Task<ConversionResult>(() =>
+            FileName = _ffmpegPath,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true
+        };
+
+        startInfo.ArgumentList.Add("-hide_banner");
+        startInfo.ArgumentList.Add("-y");
+        startInfo.ArgumentList.Add("-i");
+        startInfo.ArgumentList.Add(inputPath);
+        startInfo.ArgumentList.Add("-vn");
+        startInfo.ArgumentList.Add("-c:a");
+        startInfo.ArgumentList.Add("libmp3lame");
+        startInfo.ArgumentList.Add("-b:a");
+        startInfo.ArgumentList.Add("256k");
+        startInfo.ArgumentList.Add(outputPath);
+
+        using var ffmpeg = new Process { StartInfo = startInfo };
+        var output = new StringBuilder();
+
+        ffmpeg.OutputDataReceived += (_, e) => AppendLine(output, e.Data);
+        ffmpeg.ErrorDataReceived += (_, e) => AppendLine(output, e.Data);
+
+        try
+        {
+            ffmpeg.Start();
+            ffmpeg.BeginOutputReadLine();
+            ffmpeg.BeginErrorReadLine();
+            await ffmpeg.WaitForExitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            TryKill(ffmpeg);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return ConversionResult.Failed(inputPath, outputPath, ex.Message);
+        }
+
+        if (ffmpeg.ExitCode == 0 && File.Exists(outputPath))
+        {
+            return new ConversionResult
             {
-                var targetPath = Path.Combine(m_targetDirectory, Path.GetFileNameWithoutExtension(path));
-                var arguments = $"-i \"{path}\" -vn -c:a libmp3lame -b:a 256k \"{targetPath}.mp3\"";
+                InputPath = inputPath,
+                OutputPath = outputPath,
+                Successful = true,
+                ExitCode = ffmpeg.ExitCode
+            };
+        }
 
-                var startInfo = new ProcessStartInfo()
-                {
-                    FileName = m_ffmpegPath,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    CreateNoWindow = false,
-                    WindowStyle = ProcessWindowStyle.Normal
-                };
+        return ConversionResult.Failed(
+            inputPath,
+            outputPath,
+            GetLastMeaningfulLine(output.ToString()) ?? $"ffmpeg exited with code {ffmpeg.ExitCode}.",
+            ffmpeg.ExitCode);
+    }
 
-                var ffmpeg = new Process()
-                {
-                    StartInfo = startInfo
-                };
+    private static string ResolveFfmpegPath()
+    {
+        var bundledPath = Path.Combine(AppContext.BaseDirectory, "3rdparty", "ffmpeg.exe");
+        return File.Exists(bundledPath) ? bundledPath : "ffmpeg";
+    }
 
-                try
-                {
-                    ffmpeg.Start();
-                }
-                catch (Exception)
-                {
-                    return new ConversionResult();
-                }
+    private string CreateUniqueOutputPath(string inputPath)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(inputPath);
+        var outputPath = Path.Combine(_targetDirectory, $"{baseName}.mp3");
+        var index = 1;
 
-                var result = new ConversionResult()
-                {
-                    Successful = true
-                };
+        while (File.Exists(outputPath))
+        {
+            outputPath = Path.Combine(_targetDirectory, $"{baseName} ({index}).mp3");
+            index++;
+        }
 
-                ffmpeg.WaitForExit();
+        return outputPath;
+    }
 
-                return result;
-            });
+    private static void AppendLine(StringBuilder builder, string? line)
+    {
+        if (!string.IsNullOrWhiteSpace(line))
+            builder.AppendLine(line);
+    }
 
-            task.Start();
+    private static string? GetLastMeaningfulLine(string text)
+    {
+        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        return lines.Length == 0 ? null : lines[^1];
+    }
 
-            return await task;
+    private static void TryKill(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+        }
+        catch
+        {
         }
     }
 }

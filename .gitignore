@@ -1,0 +1,12 @@
+.vs/
+.vscode/
+bin/
+obj/
+packages/
+
+*.user
+*.suo
+*.cache
+*.log
+
+AudioExtractor/3rdparty/ffmpeg.exe
