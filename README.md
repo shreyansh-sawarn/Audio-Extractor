@@ -153,3 +153,16 @@ This mounts the local `./input` and `./output` directories to perform bulk conve
     *   [`ViewModels/MainWindowViewModel.cs`](file:///c:/Users/shrey/OneDrive/Documents/Repos/Audio-Extractor/AudioExtractor/ViewModels/MainWindowViewModel.cs): Main view model orchestrating queue updates, parallel batch logic, error parsing, and options.
     *   [`MainWindow.xaml`](file:///c:/Users/shrey/OneDrive/Documents/Repos/Audio-Extractor/AudioExtractor/MainWindow.xaml): Application UI layout (styles, overlays, progress bars, settings panels).
 *   [`scripts/`](file:///c:/Users/shrey/OneDrive/Documents/Repos/Audio-Extractor/scripts): Native scripts for building and executing Docker runs.
+
+---
+
+## CI/CD Workflows
+
+The repository uses automated GitHub Actions workflows for continuous integration and continuous deployment:
+
+1.  **.NET Build & Release (`desktop-build-release.yml`):**
+    *   Runs on every pull request and push to the `main` branch to verify the solution restores and compiles correctly.
+    *   When you tag a commit with `v*` (e.g., `v1.0.0`), the workflow automatically compiles self-contained binaries for the WPF GUI and CLI (win-x64), packages them as `.zip` archives, and creates a draft/public GitHub Release attaching the zipped builds.
+2.  **Docker Build & Publish (`docker-publish.yml`):**
+    *   Triggers on PRs and commits to verify that the Docker image builds cleanly.
+    *   On branch updates or tag pushes, it builds the production Docker image and publishes it to the GitHub Container Registry (GHCR) at `ghcr.io/your-username/audio-extractor`.
