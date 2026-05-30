@@ -23,6 +23,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private CancellationTokenSource? _cts;
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public event Action<int, int>? ConversionBatchCompleted;
 
     public ObservableCollection<InputItemModel> InputItems { get; } = new();
 
@@ -260,6 +261,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     var duration = converter.GetDuration(filePath);
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
+                        item.TotalDuration = duration;
                         item.EndTime = duration;
                     });
                 }
@@ -393,6 +395,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     : $"Finished with {failed} failed/cancelled file(s).";
 
                 RunPostConversionAction();
+                ConversionBatchCompleted?.Invoke(completed, failed);
             }
         }
         catch (OperationCanceledException)

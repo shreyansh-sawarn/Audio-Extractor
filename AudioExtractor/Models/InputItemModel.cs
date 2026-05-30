@@ -51,18 +51,155 @@ public sealed class InputItemModel : INotifyPropertyChanged
         set => SetProperty(ref _progress, value);
     }
 
+    private string _totalDuration = string.Empty;
+    public string TotalDuration
+    {
+        get => _totalDuration;
+        set
+        {
+            if (SetProperty(ref _totalDuration, value))
+            {
+                if (TryParseTime(value, out double seconds))
+                {
+                    _totalDurationSeconds = seconds;
+                }
+                ValidateTimeRange();
+            }
+        }
+    }
+
+    private double _totalDurationSeconds = -1;
+
+    private bool _isTimeRangeValid = true;
+    public bool IsTimeRangeValid
+    {
+        get => _isTimeRangeValid;
+        private set => SetProperty(ref _isTimeRangeValid, value);
+    }
+
+    private string _timeValidationError = string.Empty;
+    public string TimeValidationError
+    {
+        get => _timeValidationError;
+        private set => SetProperty(ref _timeValidationError, value);
+    }
+
     private string _startTime = string.Empty;
     public string StartTime
     {
         get => _startTime;
-        set => SetProperty(ref _startTime, value);
+        set
+        {
+            if (SetProperty(ref _startTime, value))
+            {
+                ValidateTimeRange();
+            }
+        }
     }
 
     private string _endTime = string.Empty;
     public string EndTime
     {
         get => _endTime;
-        set => SetProperty(ref _endTime, value);
+        set
+        {
+            if (SetProperty(ref _endTime, value))
+            {
+                ValidateTimeRange();
+            }
+        }
+    }
+
+    public void ValidateTimeRange()
+    {
+        if (string.IsNullOrWhiteSpace(StartTime))
+        {
+            IsTimeRangeValid = true;
+            TimeValidationError = string.Empty;
+            return;
+        }
+
+        if (!TryParseTime(StartTime, out double startSec))
+        {
+            IsTimeRangeValid = false;
+            TimeValidationError = "Start time format invalid (use hh:mm:ss, mm:ss, or seconds).";
+            return;
+        }
+
+        double endSec = startSec;
+        if (!string.IsNullOrWhiteSpace(EndTime))
+        {
+            if (!TryParseTime(EndTime, out endSec))
+            {
+                IsTimeRangeValid = false;
+                TimeValidationError = "End time format invalid (use hh:mm:ss, mm:ss, or seconds).";
+                return;
+            }
+        }
+
+        if (startSec > endSec)
+        {
+            IsTimeRangeValid = false;
+            TimeValidationError = "Start time cannot be after End time.";
+            return;
+        }
+
+        if (_totalDurationSeconds >= 0)
+        {
+            if (startSec > _totalDurationSeconds)
+            {
+                IsTimeRangeValid = false;
+                TimeValidationError = $"Start time exceeds total media duration ({TotalDuration}).";
+                return;
+            }
+            if (endSec > _totalDurationSeconds)
+            {
+                IsTimeRangeValid = false;
+                TimeValidationError = $"End time exceeds total media duration ({TotalDuration}).";
+                return;
+            }
+        }
+
+        IsTimeRangeValid = true;
+        TimeValidationError = string.Empty;
+    }
+
+    public static bool TryParseTime(string input, out double seconds)
+    {
+        seconds = 0;
+        if (string.IsNullOrWhiteSpace(input))
+            return false;
+
+        if (double.TryParse(input, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out seconds))
+        {
+            return seconds >= 0;
+        }
+
+        var parts = input.Split(':');
+        if (parts.Length == 2)
+        {
+            if (int.TryParse(parts[0], out int min) && double.TryParse(parts[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double sec))
+            {
+                if (min >= 0 && sec >= 0 && sec < 60)
+                {
+                    seconds = min * 60 + sec;
+                    return true;
+                }
+            }
+        }
+        else if (parts.Length == 3)
+        {
+            if (int.TryParse(parts[0], out int hr) && int.TryParse(parts[1], out int min) && double.TryParse(parts[2], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double sec))
+            {
+                if (hr >= 0 && min >= 0 && min < 60 && sec >= 0 && sec < 60)
+                {
+                    seconds = hr * 3600 + min * 60 + sec;
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public string? ErrorMessage

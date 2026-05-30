@@ -210,7 +210,11 @@
                              ItemsSource="{Binding InputItems}"
                              MouseDoubleClick="InputItemListBox_MouseDoubleClick"
                              IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             AllowDrop="True"
+                             PreviewMouseLeftButtonDown="InputItemListBox_PreviewMouseLeftButtonDown"
+                             PreviewMouseMove="InputItemListBox_PreviewMouseMove"
+                             Drop="InputItemListBox_Drop">
 
                         <ListBox.ItemTemplate>
                             <DataTemplate>
@@ -262,13 +266,39 @@
                                     <!-- Trimming Offset Fields -->
                                     <StackPanel Grid.Column="1" Grid.Row="2" Orientation="Horizontal" Margin="0,4,0,2"
                                                 IsEnabled="{Binding DataContext.IsConversionInProgress, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource InverseBooleanConverter}}">
-                                        <TextBlock Text="Trim Start:" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,4,0"/>
-                                        <TextBox Text="{Binding StartTime, UpdateSourceTrigger=PropertyChanged}" Width="70" FontSize="11" Padding="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                 Background="White" Foreground="#111827" ToolTip="Start time format: hh:mm:ss, mm:ss, or seconds"/>
-                                        <TextBlock Text="End:" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="12,0,4,0"/>
-                                        <TextBox Text="{Binding EndTime, UpdateSourceTrigger=PropertyChanged}" Width="70" FontSize="11" Padding="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                 Background="White" Foreground="#111827" ToolTip="End time format: hh:mm:ss, mm:ss, or seconds"/>
-                                    </StackPanel>
+                                         <TextBlock Text="Trim Start:" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,4,0"/>
+                                         <TextBox Text="{Binding StartTime, UpdateSourceTrigger=PropertyChanged}" Width="70" FontSize="11" Padding="2" BorderThickness="1"
+                                                  Background="White" Foreground="#111827">
+                                             <TextBox.Style>
+                                                 <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                                                     <Setter Property="ToolTip" Value="Start time format: hh:mm:ss, mm:ss, or seconds"/>
+                                                     <Style.Triggers>
+                                                         <DataTrigger Binding="{Binding IsTimeRangeValid}" Value="False">
+                                                             <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}"/>
+                                                             <Setter Property="ToolTip" Value="{Binding TimeValidationError}"/>
+                                                         </DataTrigger>
+                                                     </Style.Triggers>
+                                                 </Style>
+                                             </TextBox.Style>
+                                         </TextBox>
+                                         <TextBlock Text="End:" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="12,0,4,0"/>
+                                         <TextBox Text="{Binding EndTime, UpdateSourceTrigger=PropertyChanged}" Width="70" FontSize="11" Padding="2" BorderThickness="1"
+                                                  Background="White" Foreground="#111827">
+                                             <TextBox.Style>
+                                                 <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                                                     <Setter Property="ToolTip" Value="End time format: hh:mm:ss, mm:ss, or seconds"/>
+                                                     <Style.Triggers>
+                                                         <DataTrigger Binding="{Binding IsTimeRangeValid}" Value="False">
+                                                             <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}"/>
+                                                             <Setter Property="ToolTip" Value="{Binding TimeValidationError}"/>
+                                                         </DataTrigger>
+                                                     </Style.Triggers>
+                                                 </Style>
+                                             </TextBox.Style>
+                                         </TextBox>
+                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2" Grid.Row="0" Grid.RowSpan="3"
                                                 VerticalAlignment="Center"
