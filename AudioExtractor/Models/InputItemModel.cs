@@ -51,6 +51,20 @@ public sealed class InputItemModel : INotifyPropertyChanged
         set => SetProperty(ref _progress, value);
     }
 
+    private string _startTime = string.Empty;
+    public string StartTime
+    {
+        get => _startTime;
+        set => SetProperty(ref _startTime, value);
+    }
+
+    private string _endTime = string.Empty;
+    public string EndTime
+    {
+        get => _endTime;
+        set => SetProperty(ref _endTime, value);
+    }
+
     public string? ErrorMessage
     {
         get => _errorMessage;

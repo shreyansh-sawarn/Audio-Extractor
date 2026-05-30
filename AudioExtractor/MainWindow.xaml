@@ -6,10 +6,12 @@
         xmlns:cvt="clr-namespace:AudioExtractor.Converters"
         mc:Ignorable="d"
         Title="Audio Extractor &amp; Converter" 
-        Height="540" Width="920"
-        MinHeight="440" MinWidth="760"
+        Height="560" Width="940"
+        MinHeight="460" MinWidth="800"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource WindowBackgroundBrush}">
+        Background="{DynamicResource WindowBackgroundBrush}"
+        AllowDrop="True"
+        DragEnter="Window_DragEnter">
 
     <Window.Resources>
         <cvt:HumanReadableFileSizeConverter x:Key="FileSizeConverter"/>
@@ -54,7 +56,6 @@
             </Setter>
         </Style>
 
-        <!-- Custom Scrollbar/Buttons styles can go here or load dynamically. -->
         <Style TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
@@ -132,7 +133,7 @@
         <!-- Main Workspace -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="230"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
@@ -157,9 +158,22 @@
                                   IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}"/>
 
                         <!-- Normalize Volume -->
-                        <CheckBox Content="Normalize Volume" IsChecked="{Binding Normalize}" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,24" 
+                        <CheckBox Content="Normalize Volume" IsChecked="{Binding Normalize}" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,16" 
                                   ToolTip="Equalizes volume levels across all tracks using FFmpeg loudnorm filter"
                                   IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}"/>
+
+                        <!-- Parallel Conversions Limit -->
+                        <TextBlock Text="Parallel Tasks" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,8,0,6"/>
+                        <ComboBox ItemsSource="{Binding SupportedParallelOptions}" SelectedItem="{Binding MaxParallelTasks}" Margin="0,0,0,16" Height="26"
+                                  IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}"/>
+
+                        <Separator Background="{DynamicResource BorderBrush}" Margin="0,0,0,16"/>
+
+                        <!-- Filename Template -->
+                        <TextBlock Text="FILENAME TEMPLATE" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12"/>
+                        <TextBox Text="{Binding FilenameTemplate, UpdateSourceTrigger=PropertyChanged}" Background="White" Foreground="#111827" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="4" Height="24" Margin="0,0,0,4"
+                                 IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}"/>
+                        <TextBlock Text="Tags: [Name] [Format] [Bitrate] [Date]" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,16"/>
 
                         <Separator Background="{DynamicResource BorderBrush}" Margin="0,0,0,16"/>
 
@@ -185,14 +199,12 @@
                          BorderBrush="{DynamicResource BorderBrush}"
                          BorderThickness="1"
                          ItemsSource="{Binding InputItems}"
-                         AllowDrop="True" 
-                         Drop="InputItemListBox_Drop"
                          MouseDoubleClick="InputItemListBox_MouseDoubleClick"
                          IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}">
 
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Grid Margin="0,4">
+                            <Grid Margin="0,6">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition MinWidth="60"/>
                                     <ColumnDefinition Width="*"/>
@@ -201,13 +213,14 @@
                                 </Grid.ColumnDefinitions>
 
                                 <Grid.RowDefinitions>
-                                    <RowDefinition/>
-                                    <RowDefinition/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Column="0" 
                                            Grid.Row="0" 
-                                           Grid.RowSpan="2" 
+                                           Grid.RowSpan="3" 
                                            HorizontalAlignment="Center" 
                                            VerticalAlignment="Center"
                                            FontWeight="Bold"
@@ -228,14 +241,26 @@
                                            Grid.Row="1" 
                                            FontStyle="Italic"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
-                                           TextTrimming="CharacterEllipsis">
+                                           TextTrimming="CharacterEllipsis"
+                                           Margin="0,2,0,2">
                                     <Run Text="Directory:"/>
                                     <Run Text="{Binding ContainerDirectory}"/>
                                     <Run Text="  Size:"></Run>
                                     <Run Text="{Binding FileSize, Converter={StaticResource FileSizeConverter}}"/>
                                 </TextBlock>
 
-                                <StackPanel Grid.Column="2" Grid.Row="0" Grid.RowSpan="2"
+                                <!-- Trimming Offset Fields -->
+                                <StackPanel Grid.Column="1" Grid.Row="2" Orientation="Horizontal" Margin="0,4,0,2"
+                                            IsEnabled="{Binding DataContext.IsConversionInProgress, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource InverseBooleanConverter}}">
+                                    <TextBlock Text="Trim Start:" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,4,0"/>
+                                    <TextBox Text="{Binding StartTime, UpdateSourceTrigger=PropertyChanged}" Width="70" FontSize="11" Padding="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                             Background="White" Foreground="#111827" ToolTip="Start time format: hh:mm:ss, mm:ss, or seconds"/>
+                                    <TextBlock Text="End:" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="12,0,4,0"/>
+                                    <TextBox Text="{Binding EndTime, UpdateSourceTrigger=PropertyChanged}" Width="70" FontSize="11" Padding="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                             Background="White" Foreground="#111827" ToolTip="End time format: hh:mm:ss, mm:ss, or seconds"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Grid.Row="0" Grid.RowSpan="3"
                                             VerticalAlignment="Center"
                                             Margin="12,0,0,0">
                                     <TextBlock Text="{Binding Status}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"/>
@@ -286,12 +311,13 @@
                                 </StackPanel>
 
                                 <!-- Remove from List Button -->
-                                <Button Grid.Column="3" Grid.Row="0" Grid.RowSpan="2"
+                                <Button Grid.Column="3" Grid.Row="0" Grid.RowSpan="3"
                                         Content="✕" 
                                         ToolTip="Remove from list"
                                         FontFamily="Segoe UI"
                                         FontSize="14"
                                         FontWeight="Bold"
+                                        Padding="0"
                                         Foreground="{DynamicResource TextSecondaryBrush}"
                                         Background="Transparent"
                                         BorderThickness="0"
@@ -391,5 +417,25 @@
                 </StackPanel>
             </Grid>
         </Border>
+
+        <!-- Drag & Drop Visual Overlay -->
+        <Grid x:Name="DragDropOverlay" Grid.Row="0" Grid.RowSpan="3" Background="#EE0F172A" Visibility="Collapsed"
+              AllowDrop="True"
+              DragOver="DragDropOverlay_DragOver"
+              DragLeave="DragDropOverlay_DragLeave"
+              Drop="DragDropOverlay_Drop">
+            <Border BorderBrush="{DynamicResource AccentBrush}" BorderThickness="3" CornerRadius="12" Margin="24" Background="Transparent" SnapsToDevicePixels="True">
+                <Border.Resources>
+                    <DoubleCollection x:Key="DashArray">4 4</DoubleCollection>
+                </Border.Resources>
+                <Grid>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="📂" FontSize="64" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                        <TextBlock Text="Drop Video Files to Import" FontSize="20" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Supports webm, mp4, mkv, mov, avi, m4v" FontSize="12" Foreground="#94A3B8" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

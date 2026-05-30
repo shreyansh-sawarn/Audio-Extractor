@@ -29,6 +29,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string[] SupportedFormats { get; } = { "MP3", "M4A", "WAV", "FLAC" };
     public string[] SupportedBitrates { get; } = { "128k", "256k", "320k" };
     public string[] SupportedPostActions { get; } = { "None", "Play Sound", "Open Folder" };
+    public int[] SupportedParallelOptions { get; } = { 1, 2, 3, 4 };
 
     private string _selectedFormat = "MP3";
     public string SelectedFormat
@@ -114,6 +115,34 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         set => Theme = value ? "Dark" : "Light";
     }
 
+    private int _maxParallelTasks = 1;
+    public int MaxParallelTasks
+    {
+        get => _maxParallelTasks;
+        set
+        {
+            if (SetProperty(ref _maxParallelTasks, value))
+            {
+                _settings.MaxParallelTasks = value;
+                _settings.Save();
+            }
+        }
+    }
+
+    private string _filenameTemplate = "[Name]";
+    public string FilenameTemplate
+    {
+        get => _filenameTemplate;
+        set
+        {
+            if (SetProperty(ref _filenameTemplate, value))
+            {
+                _settings.FilenameTemplate = value;
+                _settings.Save();
+            }
+        }
+    }
+
     public RelayCommand StartConversionCommand { get; }
     public RelayCommand CancelConversionCommand { get; }
     public RelayCommand BrowseTargetFolderCommand { get; }
@@ -167,6 +196,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _normalize = _settings.Normalize;
         _selectedPostAction = _settings.PostAction;
         _theme = _settings.Theme;
+        _maxParallelTasks = _settings.MaxParallelTasks > 0 ? _settings.MaxParallelTasks : 1;
+        _filenameTemplate = !string.IsNullOrEmpty(_settings.FilenameTemplate) ? _settings.FilenameTemplate : "[Name]";
         
         _settings.Save();
 
@@ -212,8 +243,30 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 continue;
             }
 
-            InputItems.Add(new InputItemModel(filePath));
+            var item = new InputItemModel(filePath)
+            {
+                StartTime = "00:00:00",
+                EndTime = "00:00:00"
+            };
+            InputItems.Add(item);
             added++;
+
+            var targetDir = TargetFolderPath;
+            Task.Run(() =>
+            {
+                try
+                {
+                    var converter = new MediaConverter(targetDir);
+                    var duration = converter.GetDuration(filePath);
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        item.EndTime = duration;
+                    });
+                }
+                catch
+                {
+                }
+            });
         }
 
         StatusMessage = added == 0
@@ -241,18 +294,36 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
             var completed = 0;
             var failed = 0;
+            var lockObj = new object();
 
-            foreach (var item in InputItems.ToArray())
+            using var semaphore = new SemaphoreSlim(MaxParallelTasks);
+            
+            var tasks = InputItems.ToArray().Select(async item =>
             {
-                if (_cts.IsCancellationRequested)
-                    break;
-
-                item.Status = "Converting";
-                item.ErrorMessage = null;
-                item.Progress = 0;
+                try
+                {
+                    await semaphore.WaitAsync(_cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    item.Status = "Cancelled";
+                    lock (lockObj) failed++;
+                    return;
+                }
 
                 try
                 {
+                    if (_cts.IsCancellationRequested)
+                    {
+                        item.Status = "Cancelled";
+                        lock (lockObj) failed++;
+                        return;
+                    }
+
+                    item.Status = "Converting";
+                    item.ErrorMessage = null;
+                    item.Progress = 0;
+
                     var progressReporter = new Progress<double>(p => item.Progress = p);
                     var result = await converter.ConvertFileAsync(
                         item.FilePath, 
@@ -260,36 +331,56 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                         SelectedBitrate, 
                         IsMono, 
                         Normalize, 
+                        item.StartTime,
+                        item.EndTime,
+                        FilenameTemplate,
                         progressReporter, 
                         _cts.Token);
 
-                    if (result.Successful)
+                    if (_cts.IsCancellationRequested)
+                    {
+                        item.Status = "Cancelled";
+                        lock (lockObj) failed++;
+                    }
+                    else if (result.Successful)
                     {
                         item.OutputPath = result.OutputPath;
                         item.Status = "Done";
-                        completed++;
+                        lock (lockObj) completed++;
                     }
                     else
                     {
                         item.Status = "Failed";
                         item.ErrorMessage = result.ErrorMessage;
-                        failed++;
+                        lock (lockObj) failed++;
                     }
                 }
                 catch (OperationCanceledException)
                 {
                     item.Status = "Cancelled";
-                    failed++;
+                    lock (lockObj) failed++;
                 }
                 catch (Exception ex)
                 {
                     item.Status = "Failed";
                     item.ErrorMessage = ex.Message;
-                    failed++;
+                    lock (lockObj) failed++;
                 }
+                finally
+                {
+                    semaphore.Release();
+                    
+                    int currentCompleted, currentTotal;
+                    lock (lockObj)
+                    {
+                        currentCompleted = completed;
+                        currentTotal = InputItems.Count;
+                    }
+                    StatusMessage = $"Processed {currentCompleted} of {currentTotal}.";
+                }
+            });
 
-                StatusMessage = $"Converted {completed} of {InputItems.Count}.";
-            }
+            await Task.WhenAll(tasks);
 
             if (_cts.IsCancellationRequested)
             {
@@ -303,6 +394,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
                 RunPostConversionAction();
             }
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Conversion cancelled.";
         }
         catch (Exception ex)
         {

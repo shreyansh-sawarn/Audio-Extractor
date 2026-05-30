@@ -58,4 +58,39 @@ public partial class MainWindow : Window
             _viewModel.PlayFileCommand.Execute(item);
         }
     }
+
+    private void Window_DragEnter(object sender, System.Windows.DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) && !_viewModel.IsConversionInProgress)
+        {
+            DragDropOverlay.Visibility = Visibility.Visible;
+            e.Effects = System.Windows.DragDropEffects.Copy;
+            e.Handled = true;
+        }
+    }
+
+    private void DragDropOverlay_DragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) && !_viewModel.IsConversionInProgress)
+        {
+            e.Effects = System.Windows.DragDropEffects.Copy;
+            e.Handled = true;
+        }
+    }
+
+    private void DragDropOverlay_DragLeave(object sender, System.Windows.DragEventArgs e)
+    {
+        DragDropOverlay.Visibility = Visibility.Collapsed;
+        e.Handled = true;
+    }
+
+    private void DragDropOverlay_Drop(object sender, System.Windows.DragEventArgs e)
+    {
+        DragDropOverlay.Visibility = Visibility.Collapsed;
+        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) && !_viewModel.IsConversionInProgress)
+        {
+            _viewModel.AddFileList(e.Data.GetData(System.Windows.DataFormats.FileDrop) as string[]);
+        }
+        e.Handled = true;
+    }
 }

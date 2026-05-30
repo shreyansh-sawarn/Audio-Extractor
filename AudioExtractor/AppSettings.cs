@@ -17,6 +17,8 @@ public sealed class AppSettings
     public bool IsMono { get; set; } = false;
     public bool Normalize { get; set; } = false;
     public string PostAction { get; set; } = "None";
+    public int MaxParallelTasks { get; set; } = 1;
+    public string FilenameTemplate { get; set; } = "[Name]";
 
     private static string SettingsDirectory
     {

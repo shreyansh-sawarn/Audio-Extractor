@@ -26,6 +26,9 @@ public sealed class MediaConverter
         string bitrate = "256k", 
         bool isMono = false, 
         bool normalize = false, 
+        string? startTime = null,
+        string? endTime = null,
+        string nameTemplate = "[Name]",
         IProgress<double>? progress = null, 
         CancellationToken cancellationToken = default)
     {
@@ -42,7 +45,7 @@ public sealed class MediaConverter
         }
 
         var ext = format.ToLowerInvariant();
-        var outputPath = CreateUniqueOutputPath(inputPath, ext);
+        var outputPath = CreateUniqueOutputPath(inputPath, ext, nameTemplate, bitrate);
         var startInfo = new ProcessStartInfo
         {
             FileName = _ffmpegPath,
@@ -54,6 +57,21 @@ public sealed class MediaConverter
 
         startInfo.ArgumentList.Add("-hide_banner");
         startInfo.ArgumentList.Add("-y");
+
+        // Trim start time
+        if (!string.IsNullOrWhiteSpace(startTime))
+        {
+            startInfo.ArgumentList.Add("-ss");
+            startInfo.ArgumentList.Add(startTime.Trim());
+        }
+
+        // Trim end time
+        if (!string.IsNullOrWhiteSpace(endTime))
+        {
+            startInfo.ArgumentList.Add("-to");
+            startInfo.ArgumentList.Add(endTime.Trim());
+        }
+
         startInfo.ArgumentList.Add("-i");
         startInfo.ArgumentList.Add(inputPath);
         startInfo.ArgumentList.Add("-vn");
@@ -206,15 +224,32 @@ public sealed class MediaConverter
         return File.Exists(bundledPath) ? bundledPath : "ffmpeg";
     }
 
-    private string CreateUniqueOutputPath(string inputPath, string ext)
+    private string CreateUniqueOutputPath(string inputPath, string ext, string template, string bitrate)
     {
         var baseName = Path.GetFileNameWithoutExtension(inputPath);
-        var outputPath = Path.Combine(_targetDirectory, $"{baseName}.{ext}");
+        
+        var resolvedName = template;
+        if (string.IsNullOrWhiteSpace(resolvedName))
+            resolvedName = "[Name]";
+
+        resolvedName = resolvedName
+            .Replace("[Name]", baseName)
+            .Replace("[Format]", ext.ToUpperInvariant())
+            .Replace("[Bitrate]", bitrate)
+            .Replace("[Date]", DateTime.Now.ToString("yyyyMMdd"));
+
+        // Clean invalid characters from filename
+        foreach (char c in Path.GetInvalidFileNameChars())
+        {
+            resolvedName = resolvedName.Replace(c, '_');
+        }
+
+        var outputPath = Path.Combine(_targetDirectory, $"{resolvedName}.{ext}");
         var index = 1;
 
         while (File.Exists(outputPath))
         {
-            outputPath = Path.Combine(_targetDirectory, $"{baseName} ({index}).{ext}");
+            outputPath = Path.Combine(_targetDirectory, $"{resolvedName} ({index}).{ext}");
             index++;
         }
 
@@ -255,5 +290,35 @@ public sealed class MediaConverter
         catch
         {
         }
+    }
+
+    public string GetDuration(string inputPath)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = _ffmpegPath,
+                Arguments = $"-hide_banner -i \"{inputPath}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true
+            };
+            using var process = Process.Start(startInfo);
+            if (process == null) return "00:00:00";
+            
+            var output = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            var match = Regex.Match(output, @"Duration:\s*(\d+):(\d+):(\d+)");
+            if (match.Success)
+            {
+                return $"{match.Groups[1].Value}:{match.Groups[2].Value}:{match.Groups[3].Value}";
+            }
+        }
+        catch
+        {
+        }
+        return "00:00:00";
     }
 }
