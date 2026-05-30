@@ -68,13 +68,13 @@ jobs:
         Compress-Archive -Path ./publish/cli/* -DestinationPath ./AudioExtractor-CLI-win-x64.zip
 
     - name: Upload GUI Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: AudioExtractor-GUI-win-x64
         path: ./AudioExtractor-GUI-win-x64.zip
 
     - name: Upload CLI Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: AudioExtractor-CLI-win-x64
         path: ./AudioExtractor-CLI-win-x64.zip
