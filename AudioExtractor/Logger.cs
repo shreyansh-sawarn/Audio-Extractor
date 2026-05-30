@@ -6,11 +6,11 @@ namespace AudioExtractor;
 public static class Logger
 {
     private static readonly object LockObj = new();
-    
+
     // Defaults to the default Music/AudioExtractor/logs directory
     public static string LogDirectory { get; set; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), 
-        "AudioExtractor", 
+        Environment.GetFolderPath(Environment.SpecialFolder.MyMusic),
+        "AudioExtractor",
         "logs");
 
     private static string LogFilePath => Path.Combine(LogDirectory, $"activity_{DateTime.Now:yyyy_MM_dd}.log");

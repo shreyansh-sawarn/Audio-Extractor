@@ -192,7 +192,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _targetFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "AudioExtractor");
         _settings.TargetFolderPath = _targetFolderPath;
         Logger.LogDirectory = Path.Combine(_targetFolderPath, "logs");
-        
+
         // Restore user settings
         _selectedBitrate = _settings.Bitrate;
         _isMono = _settings.IsMono;
@@ -201,7 +201,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _theme = _settings.Theme;
         _maxParallelTasks = _settings.MaxParallelTasks > 0 ? _settings.MaxParallelTasks : 1;
         _filenameTemplate = !string.IsNullOrEmpty(_settings.FilenameTemplate) ? _settings.FilenameTemplate : "[Name]";
-        
+
         _settings.Save();
 
         InputItems.CollectionChanged += (_, _) =>
@@ -334,7 +334,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var lockObj = new object();
 
             using var semaphore = new SemaphoreSlim(MaxParallelTasks);
-            
+
             var tasks = InputItems.ToArray().Select(async item =>
             {
                 try
@@ -367,15 +367,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
                     var progressReporter = new Progress<double>(p => item.Progress = p);
                     var result = await converter.ConvertFileAsync(
-                        item.FilePath, 
-                        SelectedFormat, 
-                        SelectedBitrate, 
-                        IsMono, 
-                        Normalize, 
+                        item.FilePath,
+                        SelectedFormat,
+                        SelectedBitrate,
+                        IsMono,
+                        Normalize,
                         item.StartTime,
                         item.EndTime,
                         FilenameTemplate,
-                        progressReporter, 
+                        progressReporter,
                         _cts.Token);
 
                     if (_cts.IsCancellationRequested)
@@ -415,7 +415,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 finally
                 {
                     semaphore.Release();
-                    
+
                     int currentCompleted, currentTotal;
                     lock (lockObj)
                     {

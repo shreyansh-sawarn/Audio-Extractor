@@ -86,7 +86,7 @@ public partial class MainWindow : Window
     {
         var app = System.Windows.Application.Current;
         app.Resources.MergedDictionaries.Clear();
-        
+
         var themeUri = new Uri($"Themes/{themeName}Theme.xaml", UriKind.Relative);
         try
         {

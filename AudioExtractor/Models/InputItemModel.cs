@@ -16,7 +16,7 @@ public sealed class InputItemModel : INotifyPropertyChanged
     public string ContainerDirectory { get; set; } = string.Empty;
     public string FilePath { get; set; } = string.Empty;
     public long FileSize { get; set; }
-    
+
     private string? _outputPath;
     public string? OutputPath
     {

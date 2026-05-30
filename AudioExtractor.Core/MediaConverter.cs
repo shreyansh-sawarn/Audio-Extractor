@@ -21,15 +21,15 @@ public sealed class MediaConverter
     public bool IsFfmpegAvailable => File.Exists(_ffmpegPath) || _ffmpegPath == "ffmpeg";
 
     public async Task<ConversionResult> ConvertFileAsync(
-        string inputPath, 
-        string format = "mp3", 
-        string bitrate = "256k", 
-        bool isMono = false, 
-        bool normalize = false, 
+        string inputPath,
+        string format = "mp3",
+        string bitrate = "256k",
+        bool isMono = false,
+        bool normalize = false,
         string? startTime = null,
         string? endTime = null,
         string nameTemplate = "[Name]",
-        IProgress<double>? progress = null, 
+        IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
     {
         if (!File.Exists(inputPath))
@@ -227,7 +227,7 @@ public sealed class MediaConverter
     private string CreateUniqueOutputPath(string inputPath, string ext, string template, string bitrate)
     {
         var baseName = Path.GetFileNameWithoutExtension(inputPath);
-        
+
         var resolvedName = template;
         if (string.IsNullOrWhiteSpace(resolvedName))
             resolvedName = "[Name]";
@@ -306,7 +306,7 @@ public sealed class MediaConverter
             };
             using var process = Process.Start(startInfo);
             if (process == null) return "00:00:00";
-            
+
             var output = process.StandardError.ReadToEnd();
             process.WaitForExit();
 
