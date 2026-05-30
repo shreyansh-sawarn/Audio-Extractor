@@ -13,6 +13,10 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
         ApplyTheme(_viewModel.Theme);
+
+        // Intercept drag/drop events globally even if listbox items consume/handle them
+        AddHandler(DragDrop.DragEnterEvent, new System.Windows.DragEventHandler(Window_DragEnter), true);
+        AddHandler(DragDrop.DragOverEvent, new System.Windows.DragEventHandler(Window_DragOver), true);
     }
 
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -69,6 +73,15 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Window_DragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) && !_viewModel.IsConversionInProgress)
+        {
+            e.Effects = System.Windows.DragDropEffects.Copy;
+            e.Handled = true;
+        }
+    }
+
     private void DragDropOverlay_DragOver(object sender, System.Windows.DragEventArgs e)
     {
         if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) && !_viewModel.IsConversionInProgress)
@@ -80,7 +93,11 @@ public partial class MainWindow : Window
 
     private void DragDropOverlay_DragLeave(object sender, System.Windows.DragEventArgs e)
     {
-        DragDropOverlay.Visibility = Visibility.Collapsed;
+        var pos = e.GetPosition(this);
+        if (pos.X < 0 || pos.Y < 0 || pos.X >= ActualWidth || pos.Y >= ActualHeight)
+        {
+            DragDropOverlay.Visibility = Visibility.Collapsed;
+        }
         e.Handled = true;
     }
 
