@@ -1,0 +1,7 @@
+services:
+  audio-extractor:
+    build: .
+    volumes:
+      - ./input:/input:ro
+      - ./output:/output
+    command: ["--recursive", "--output", "/output", "/input"]

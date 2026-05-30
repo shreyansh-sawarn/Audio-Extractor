@@ -15,6 +15,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AudioExtractor.Core\AudioExtractor.Core.csproj" />
     <None Include="3rdparty\ffmpeg.exe" CopyToOutputDirectory="PreserveNewest" Condition="Exists('3rdparty\ffmpeg.exe')" />
   </ItemGroup>
 </Project>

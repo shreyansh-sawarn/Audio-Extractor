@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using AudioExtractor.Core;
 using AudioExtractor.Models;
 
 namespace AudioExtractor.ViewModels;

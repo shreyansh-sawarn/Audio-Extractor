@@ -1,45 +1,20 @@
-using System;
 using System.Diagnostics;
-using System.IO;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace AudioExtractor;
-
-public sealed class ConversionResult
-{
-    public string InputPath { get; init; } = string.Empty;
-    public string OutputPath { get; init; } = string.Empty;
-    public bool Successful { get; init; }
-    public int? ExitCode { get; init; }
-    public string? ErrorMessage { get; init; }
-
-    public static ConversionResult Failed(string inputPath, string outputPath, string errorMessage, int? exitCode = null)
-    {
-        return new ConversionResult
-        {
-            InputPath = inputPath,
-            OutputPath = outputPath,
-            Successful = false,
-            ExitCode = exitCode,
-            ErrorMessage = errorMessage
-        };
-    }
-}
+namespace AudioExtractor.Core;
 
 public sealed class MediaConverter
 {
     private readonly string _targetDirectory;
     private readonly string _ffmpegPath;
 
-    public MediaConverter(string targetDirectory)
+    public MediaConverter(string targetDirectory, string? ffmpegPath = null)
     {
         if (string.IsNullOrWhiteSpace(targetDirectory))
             throw new ArgumentException("Target directory is required.", nameof(targetDirectory));
 
         _targetDirectory = targetDirectory;
-        _ffmpegPath = ResolveFfmpegPath();
+        _ffmpegPath = string.IsNullOrWhiteSpace(ffmpegPath) ? ResolveFfmpegPath() : ffmpegPath;
     }
 
     public bool IsFfmpegAvailable => File.Exists(_ffmpegPath) || _ffmpegPath == "ffmpeg";
