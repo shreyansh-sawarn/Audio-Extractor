@@ -12,6 +12,11 @@ public sealed class AppSettings
     };
 
     public string TargetFolderPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "AudioExtractor");
+    public string Theme { get; set; } = "Dark";
+    public string Bitrate { get; set; } = "256k";
+    public bool IsMono { get; set; } = false;
+    public bool Normalize { get; set; } = false;
+    public string PostAction { get; set; } = "None";
 
     private static string SettingsDirectory
     {

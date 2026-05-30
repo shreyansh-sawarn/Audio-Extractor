@@ -6,203 +6,390 @@
         xmlns:cvt="clr-namespace:AudioExtractor.Converters"
         mc:Ignorable="d"
         Title="Audio Extractor &amp; Converter" 
-        Height="460" Width="860"
-        MinHeight="360" MinWidth="560"
-        WindowStartupLocation="CenterScreen">
-
+        Height="540" Width="920"
+        MinHeight="440" MinWidth="760"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource WindowBackgroundBrush}">
 
     <Window.Resources>
         <cvt:HumanReadableFileSizeConverter x:Key="FileSizeConverter"/>
         <cvt:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
         <cvt:BooleanVisibilityConverter x:Key="BooleanVisibilityConverter"/>
+
+        <!-- Premium Switch Template -->
+        <Style x:Key="SwitchStyle" TargetType="ToggleButton">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid x:Name="Grid" Background="Transparent" Cursor="Hand">
+                            <Border x:Name="Border" CornerRadius="10" Background="#94A3B8" BorderThickness="0" Width="38" Height="20" SnapsToDevicePixels="True">
+                                <Ellipse x:Name="Ellipse" Width="14" Height="14" HorizontalAlignment="Left" Margin="3,0,3,0" Fill="White" VerticalAlignment="Center">
+                                    <Ellipse.RenderTransform>
+                                        <TranslateTransform X="0" Y="0"/>
+                                    </Ellipse.RenderTransform>
+                                </Ellipse>
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Ellipse" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="18" Duration="0:0:0.12"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Ellipse" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.12"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Custom Scrollbar/Buttons styles can go here or load dynamically. -->
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" SnapsToDevicePixels="true">
+                            <ContentPresenter x:Name="contentPresenter" Focusable="False" HorizontalAlignment="Center" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="false">
+                                <Setter Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#111827"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="Padding" Value="6,2"/>
+        </Style>
+
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#111827"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E5E7EB"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="8">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/> <!-- Header -->
+            <RowDefinition Height="*"/>    <!-- Sidebar + List -->
+            <RowDefinition Height="Auto"/> <!-- Status/Controls Bar -->
         </Grid.RowDefinitions>
 
-        <ListBox Name="InputItemListBox" 
-                 Grid.Row="0"
-                 ItemsSource="{Binding InputItems}"
-                 AllowDrop="True" 
-                 Drop="InputItemListBox_Drop"
-                 MouseDoubleClick="InputItemListBox_MouseDoubleClick"
-                 IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}">
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{DynamicResource SidebarBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,10">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Audio Extractor &amp; Converter" 
+                               FontFamily="Segoe UI Semibold" 
+                               FontSize="18" 
+                               Foreground="{DynamicResource TextBrush}"/>
+                    <Border Background="{DynamicResource AccentBrush}" CornerRadius="4" Margin="10,0,0,0" Padding="6,2">
+                        <TextBlock Text="v2.0" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                    </Border>
+                </StackPanel>
 
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition MinWidth="60"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="140"/>
-                            <ColumnDefinition Width="40"/>
-                        </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="Dark Mode" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                    <ToggleButton Style="{StaticResource SwitchStyle}" IsChecked="{Binding IsDarkMode}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-                        <Grid.RowDefinitions>
-                            <RowDefinition/>
-                            <RowDefinition/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Column="0" 
-                                   Grid.Row="0" 
-                                   Grid.RowSpan="2" 
-                                   HorizontalAlignment="Center" 
-                                   VerticalAlignment="Center"
-                                   FontWeight="Bold">
-                            <Run Text="{Binding FileExtension}"/>
-                        </TextBlock>
-
-                        <TextBlock Grid.Column="1" Grid.Row="0" TextTrimming="CharacterEllipsis">
-                            <Run FontFamily="Segoe UI Light" 
-                                 FontSize="16"
-                                 Text="{Binding FileName}"/>
-                        </TextBlock>
-
-                        <TextBlock Grid.Column="1" 
-                                   Grid.Row="1" 
-                                   FontStyle="Italic"
-                                   TextTrimming="CharacterEllipsis">
-                            <Run Text="Directory:"/>
-                            <Run Text="{Binding ContainerDirectory}"/>
-                            <Run Text="  Size:"></Run>
-                            <Run Text="{Binding FileSize, Converter={StaticResource FileSizeConverter}}"/>
-                        </TextBlock>
-
-                        <StackPanel Grid.Column="2" Grid.Row="0" Grid.RowSpan="2"
-                                    VerticalAlignment="Center"
-                                    Margin="12,0,0,0">
-                            <TextBlock Text="{Binding Status}" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding ErrorMessage}" 
-                                       Foreground="DarkRed"
-                                       TextTrimming="CharacterEllipsis"/>
-                            
-                            <!-- Progress Bar (Visible during conversion) -->
-                            <Grid Margin="0,4,0,0" Height="20">
-                                <Grid.Style>
-                                    <Style TargetType="Grid">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Status}" Value="Converting">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Grid.Style>
-                                <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="14" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding Progress, StringFormat={}{0:F0}%}" 
-                                           HorizontalAlignment="Center" 
-                                           VerticalAlignment="Center" 
-                                           FontSize="10" 
-                                           FontWeight="Bold" 
-                                           Foreground="Black"/>
-                            </Grid>
-
-                            <!-- Play Audio and Open Folder Buttons (Visible when Completed) -->
-                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
-                                        Visibility="{Binding IsCompleted, Converter={StaticResource BooleanVisibilityConverter}}">
-                                <Button Content="Play" 
-                                        Padding="6,2"
-                                        FontSize="11"
-                                        Command="{Binding DataContext.PlayFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                        CommandParameter="{Binding}"/>
-                                <Button Content="Open Folder" 
-                                        Margin="6,0,0,0"
-                                        Padding="6,2"
-                                        FontSize="11"
-                                        Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                        CommandParameter="{Binding}"/>
-                            </StackPanel>
-                        </StackPanel>
-
-                        <!-- Remove from List Button -->
-                        <Button Grid.Column="3" Grid.Row="0" Grid.RowSpan="2"
-                                Content="✕" 
-                                ToolTip="Remove from list"
-                                FontFamily="Segoe UI"
-                                FontSize="14"
-                                FontWeight="Bold"
-                                Foreground="DimGray"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Width="26" Height="26"
-                                Command="{Binding DataContext.RemoveItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                CommandParameter="{Binding}"
-                                IsEnabled="{Binding DataContext.IsConversionInProgress, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource InverseBooleanConverter}}"/>
-                    </Grid>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
-
-        <TextBlock Grid.Row="0" 
-                   Text="Drop files here" 
-                   FontFamily="Segoe UI Light"
-                   FontSize="36"
-                   Foreground="Gray"
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"
-                   Visibility="{Binding IsInputItemsEmpty, Converter={StaticResource BooleanVisibilityConverter}}"/>
-
-        <Grid Grid.Row="1" Margin="0,8,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition/>
-                <RowDefinition/>
-            </Grid.RowDefinitions>
-
+        <!-- Main Workspace -->
+        <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Column="0" Grid.Row="0"
-                       Margin="0,0,0,8"
-                       IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}"
-                       TextTrimming="CharacterEllipsis">
-                <Run Text="Target folder:"/>
-                <Run Text="{Binding TargetFolderPath}"/>
-            </TextBlock>
+            <!-- Left settings sidebar -->
+            <Border Grid.Column="0" Background="{DynamicResource SidebarBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0" Padding="16">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="AUDIO CONFIG" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12"/>
+                        
+                        <!-- Output Extension / Format -->
+                        <TextBlock Text="Format" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,6"/>
+                        <ComboBox ItemsSource="{Binding SupportedFormats}" SelectedItem="{Binding SelectedFormat}" Margin="0,0,0,16" Height="26"
+                                  IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}"/>
 
-            <StackPanel Grid.Column="1" Grid.Row="0" 
-                        Orientation="Horizontal" 
-                        Margin="16,0,8,8"
-                        VerticalAlignment="Center"
-                        IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}">
-                <TextBlock Text="Format:" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <ComboBox ItemsSource="{Binding SupportedFormats}" 
-                          SelectedItem="{Binding SelectedFormat}" 
-                          Width="70" Height="22" 
-                          VerticalContentAlignment="Center"/>
-            </StackPanel>
+                        <!-- Bitrate -->
+                        <TextBlock Text="Bitrate" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,6"/>
+                        <ComboBox ItemsSource="{Binding SupportedBitrates}" SelectedItem="{Binding SelectedBitrate}" Margin="0,0,0,16" Height="26"
+                                  IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}"/>
 
-            <Button Grid.Column="2" Grid.Row="0"
-                    Margin="8,0,0,8"
-                    MinWidth="90"
-                    Content="Browse"
-                    Command="{Binding BrowseTargetFolderCommand}"/>
+                        <!-- Stereo/Mono -->
+                        <CheckBox Content="Force Mono" IsChecked="{Binding IsMono}" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,12"
+                                  IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}"/>
 
-            <TextBlock Grid.Column="0" Grid.Row="1"
-                       VerticalAlignment="Center"
-                       Text="{Binding StatusMessage}"
-                       TextTrimming="CharacterEllipsis"/>
+                        <!-- Normalize Volume -->
+                        <CheckBox Content="Normalize Volume" IsChecked="{Binding Normalize}" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,24" 
+                                  ToolTip="Equalizes volume levels across all tracks using FFmpeg loudnorm filter"
+                                  IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}"/>
 
-            <StackPanel Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button MinWidth="90"
-                        Content="Add Files"
-                        Command="{Binding AddFilesCommand}"/>
-                <Button Margin="8,0,0,0"
-                        MinWidth="90"
-                        Content="Clear"
-                        Command="{Binding ClearItemsCommand}"/>
-                <Button Margin="8,0,0,0"
-                        MinWidth="90"
-                        Content="Start"
-                        Command="{Binding StartConversionCommand}"/>
-            </StackPanel>
+                        <Separator Background="{DynamicResource BorderBrush}" Margin="0,0,0,16"/>
+
+                        <TextBlock Text="POST OPERATION" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12"/>
+                        
+                        <!-- Post Conversion Action -->
+                        <TextBlock Text="When complete" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,6"/>
+                        <ComboBox ItemsSource="{Binding SupportedPostActions}" SelectedItem="{Binding SelectedPostAction}" Margin="0,0,0,16" Height="26"
+                                  IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Main File List Box -->
+            <Grid Grid.Column="1" Margin="16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <ListBox Name="InputItemListBox" 
+                         Grid.Row="0"
+                         Background="{DynamicResource ControlBackgroundBrush}"
+                         BorderBrush="{DynamicResource BorderBrush}"
+                         BorderThickness="1"
+                         ItemsSource="{Binding InputItems}"
+                         AllowDrop="True" 
+                         Drop="InputItemListBox_Drop"
+                         MouseDoubleClick="InputItemListBox_MouseDoubleClick"
+                         IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}">
+
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition MinWidth="60"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="40"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Column="0" 
+                                           Grid.Row="0" 
+                                           Grid.RowSpan="2" 
+                                           HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"
+                                           FontSize="14">
+                                    <Run Text="{Binding FileExtension}"/>
+                                </TextBlock>
+
+                                <TextBlock Grid.Column="1" Grid.Row="0" TextTrimming="CharacterEllipsis">
+                                    <Run FontFamily="Segoe UI" 
+                                         FontSize="15"
+                                         FontWeight="SemiBold"
+                                         Foreground="{DynamicResource TextBrush}"
+                                         Text="{Binding FileName}"/>
+                                </TextBlock>
+
+                                <TextBlock Grid.Column="1" 
+                                           Grid.Row="1" 
+                                           FontStyle="Italic"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           TextTrimming="CharacterEllipsis">
+                                    <Run Text="Directory:"/>
+                                    <Run Text="{Binding ContainerDirectory}"/>
+                                    <Run Text="  Size:"></Run>
+                                    <Run Text="{Binding FileSize, Converter={StaticResource FileSizeConverter}}"/>
+                                </TextBlock>
+
+                                <StackPanel Grid.Column="2" Grid.Row="0" Grid.RowSpan="2"
+                                            VerticalAlignment="Center"
+                                            Margin="12,0,0,0">
+                                    <TextBlock Text="{Binding Status}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"/>
+                                    <TextBlock Text="{Binding ErrorMessage}" 
+                                               Foreground="{DynamicResource ErrorBrush}"
+                                               TextTrimming="CharacterEllipsis"
+                                               FontSize="11"/>
+                                    
+                                    <!-- Progress Bar (Visible during conversion) -->
+                                    <Grid Margin="0,4,0,0" Height="20">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Converting">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+                                        <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="14" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
+                                        <TextBlock Text="{Binding Progress, StringFormat={}{0:F0}%}" 
+                                                   HorizontalAlignment="Center" 
+                                                   VerticalAlignment="Center" 
+                                                   FontSize="10" 
+                                                   FontWeight="Bold" 
+                                                   Foreground="{DynamicResource TextBrush}"/>
+                                    </Grid>
+
+                                    <!-- Play Audio and Open Folder Buttons (Visible when Completed) -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
+                                                Visibility="{Binding IsCompleted, Converter={StaticResource BooleanVisibilityConverter}}">
+                                        <Button Content="Play" 
+                                                Padding="8,2"
+                                                FontSize="11"
+                                                Background="{DynamicResource AccentBrush}"
+                                                Foreground="White"
+                                                BorderThickness="0"
+                                                Command="{Binding DataContext.PlayFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"/>
+                                        <Button Content="Open Folder" 
+                                                Margin="6,0,0,0"
+                                                Padding="8,2"
+                                                FontSize="11"
+                                                Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Remove from List Button -->
+                                <Button Grid.Column="3" Grid.Row="0" Grid.RowSpan="2"
+                                        Content="✕" 
+                                        ToolTip="Remove from list"
+                                        FontFamily="Segoe UI"
+                                        FontSize="14"
+                                        FontWeight="Bold"
+                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Width="26" Height="26"
+                                        Command="{Binding DataContext.RemoveItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}"
+                                        IsEnabled="{Binding DataContext.IsConversionInProgress, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource InverseBooleanConverter}}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock Grid.Row="0" 
+                           Text="Drop files here" 
+                           FontFamily="Segoe UI Light"
+                           FontSize="36"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center" 
+                           VerticalAlignment="Center"
+                           Visibility="{Binding IsInputItemsEmpty, Converter={StaticResource BooleanVisibilityConverter}}"/>
+            </Grid>
         </Grid>
+
+        <!-- Bottom Controls -->
+        <Border Grid.Row="2" Background="{DynamicResource SidebarBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0" Padding="16,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" TextTrimming="CharacterEllipsis" Margin="0,0,0,4">
+                        <Run Text="Target folder:"/>
+                        <Run Text="{Binding TargetFolderPath}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"/>
+                    </TextBlock>
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button MinWidth="85" Height="28"
+                            Content="Browse"
+                            Margin="0,0,8,0"
+                            Command="{Binding BrowseTargetFolderCommand}"/>
+                    <Button MinWidth="85" Height="28"
+                            Content="Add Files"
+                            Margin="0,0,8,0"
+                            Command="{Binding AddFilesCommand}"/>
+                    <Button MinWidth="85" Height="28"
+                            Content="Clear"
+                            Margin="0,0,8,0"
+                            Command="{Binding ClearItemsCommand}"/>
+                    <Button MinWidth="110" Height="28"
+                            Content="Clear Completed"
+                            Margin="0,0,8,0"
+                            Command="{Binding ClearCompletedCommand}"/>
+                    
+                    <!-- Start/Stop Buttons -->
+                    <Grid>
+                        <Button MinWidth="100" Height="28"
+                                Content="Start"
+                                Background="{DynamicResource AccentBrush}"
+                                Foreground="White"
+                                BorderThickness="0"
+                                Command="{Binding StartConversionCommand}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsConversionInProgress}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button MinWidth="100" Height="28"
+                                Content="Stop"
+                                Background="{DynamicResource ErrorBrush}"
+                                Foreground="White"
+                                BorderThickness="0"
+                                Command="{Binding CancelConversionCommand}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsConversionInProgress}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

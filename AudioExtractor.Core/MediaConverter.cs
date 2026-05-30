@@ -20,7 +20,14 @@ public sealed class MediaConverter
 
     public bool IsFfmpegAvailable => File.Exists(_ffmpegPath) || _ffmpegPath == "ffmpeg";
 
-    public async Task<ConversionResult> ConvertFileAsync(string inputPath, string format = "mp3", IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<ConversionResult> ConvertFileAsync(
+        string inputPath, 
+        string format = "mp3", 
+        string bitrate = "256k", 
+        bool isMono = false, 
+        bool normalize = false, 
+        IProgress<double>? progress = null, 
+        CancellationToken cancellationToken = default)
     {
         if (!File.Exists(inputPath))
         {
@@ -57,7 +64,7 @@ public sealed class MediaConverter
                 startInfo.ArgumentList.Add("-c:a");
                 startInfo.ArgumentList.Add("aac");
                 startInfo.ArgumentList.Add("-b:a");
-                startInfo.ArgumentList.Add("256k");
+                startInfo.ArgumentList.Add(bitrate);
                 break;
             case "wav":
                 startInfo.ArgumentList.Add("-c:a");
@@ -72,8 +79,20 @@ public sealed class MediaConverter
                 startInfo.ArgumentList.Add("-c:a");
                 startInfo.ArgumentList.Add("libmp3lame");
                 startInfo.ArgumentList.Add("-b:a");
-                startInfo.ArgumentList.Add("256k");
+                startInfo.ArgumentList.Add(bitrate);
                 break;
+        }
+
+        if (isMono)
+        {
+            startInfo.ArgumentList.Add("-ac");
+            startInfo.ArgumentList.Add("1");
+        }
+
+        if (normalize)
+        {
+            startInfo.ArgumentList.Add("-filter:a");
+            startInfo.ArgumentList.Add("loudnorm");
         }
 
         startInfo.ArgumentList.Add(outputPath);
@@ -137,16 +156,28 @@ public sealed class MediaConverter
             ffmpeg.Start();
             ffmpeg.BeginOutputReadLine();
             ffmpeg.BeginErrorReadLine();
-            await ffmpeg.WaitForExitAsync(cancellationToken);
+
+            using (cancellationToken.Register(() => TryKill(ffmpeg)))
+            {
+                await ffmpeg.WaitForExitAsync(cancellationToken);
+            }
         }
         catch (OperationCanceledException)
         {
             TryKill(ffmpeg);
+            TryDeleteFile(outputPath);
             throw;
         }
         catch (Exception ex)
         {
+            TryDeleteFile(outputPath);
             return ConversionResult.Failed(inputPath, outputPath, ex.Message);
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            TryDeleteFile(outputPath);
+            return ConversionResult.Failed(inputPath, outputPath, "Operation cancelled.", -1);
         }
 
         if (ffmpeg.ExitCode == 0 && File.Exists(outputPath))
@@ -161,6 +192,7 @@ public sealed class MediaConverter
             };
         }
 
+        TryDeleteFile(outputPath);
         return ConversionResult.Failed(
             inputPath,
             outputPath,
@@ -207,6 +239,18 @@ public sealed class MediaConverter
         {
             if (!process.HasExited)
                 process.Kill(entireProcessTree: true);
+        }
+        catch
+        {
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
         }
         catch
         {

@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
@@ -19,12 +20,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isConversionInProgress;
     private string _targetFolderPath;
     private string _statusMessage = "Drop video files to begin.";
+    private CancellationTokenSource? _cts;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<InputItemModel> InputItems { get; } = new();
 
     public string[] SupportedFormats { get; } = { "MP3", "M4A", "WAV", "FLAC" };
+    public string[] SupportedBitrates { get; } = { "128k", "256k", "320k" };
+    public string[] SupportedPostActions { get; } = { "None", "Play Sound", "Open Folder" };
 
     private string _selectedFormat = "MP3";
     public string SelectedFormat
@@ -33,9 +37,88 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         set => SetProperty(ref _selectedFormat, value);
     }
 
+    private string _selectedBitrate = "256k";
+    public string SelectedBitrate
+    {
+        get => _selectedBitrate;
+        set
+        {
+            if (SetProperty(ref _selectedBitrate, value))
+            {
+                _settings.Bitrate = value;
+                _settings.Save();
+            }
+        }
+    }
+
+    private bool _isMono;
+    public bool IsMono
+    {
+        get => _isMono;
+        set
+        {
+            if (SetProperty(ref _isMono, value))
+            {
+                _settings.IsMono = value;
+                _settings.Save();
+            }
+        }
+    }
+
+    private bool _normalize;
+    public bool Normalize
+    {
+        get => _normalize;
+        set
+        {
+            if (SetProperty(ref _normalize, value))
+            {
+                _settings.Normalize = value;
+                _settings.Save();
+            }
+        }
+    }
+
+    private string _selectedPostAction = "None";
+    public string SelectedPostAction
+    {
+        get => _selectedPostAction;
+        set
+        {
+            if (SetProperty(ref _selectedPostAction, value))
+            {
+                _settings.PostAction = value;
+                _settings.Save();
+            }
+        }
+    }
+
+    private string _theme = "Dark";
+    public string Theme
+    {
+        get => _theme;
+        set
+        {
+            if (SetProperty(ref _theme, value))
+            {
+                _settings.Theme = value;
+                _settings.Save();
+                OnPropertyChanged(nameof(IsDarkMode));
+            }
+        }
+    }
+
+    public bool IsDarkMode
+    {
+        get => Theme == "Dark";
+        set => Theme = value ? "Dark" : "Light";
+    }
+
     public RelayCommand StartConversionCommand { get; }
+    public RelayCommand CancelConversionCommand { get; }
     public RelayCommand BrowseTargetFolderCommand { get; }
     public RelayCommand ClearItemsCommand { get; }
+    public RelayCommand ClearCompletedCommand { get; }
     public RelayCommand AddFilesCommand { get; }
     public RelayCommand<InputItemModel> PlayFileCommand { get; }
     public RelayCommand<InputItemModel> OpenFolderCommand { get; }
@@ -77,6 +160,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _settings = AppSettings.Load();
         _targetFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "AudioExtractor");
         _settings.TargetFolderPath = _targetFolderPath;
+        
+        // Restore user settings
+        _selectedBitrate = _settings.Bitrate;
+        _isMono = _settings.IsMono;
+        _normalize = _settings.Normalize;
+        _selectedPostAction = _settings.PostAction;
+        _theme = _settings.Theme;
+        
         _settings.Save();
 
         InputItems.CollectionChanged += (_, _) =>
@@ -86,8 +177,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         };
 
         StartConversionCommand = new RelayCommand(async () => await ConvertFilesAsync(), CanStartConversion);
+        CancelConversionCommand = new RelayCommand(CancelConversion, () => IsConversionInProgress);
         BrowseTargetFolderCommand = new RelayCommand(BrowseTargetFolder, () => !IsConversionInProgress);
         ClearItemsCommand = new RelayCommand(ClearItems, () => !IsConversionInProgress && InputItems.Count > 0);
+        ClearCompletedCommand = new RelayCommand(ClearCompleted, () => !IsConversionInProgress && InputItems.Any(item => item.IsCompleted));
         AddFilesCommand = new RelayCommand(AddFiles, () => !IsConversionInProgress);
         PlayFileCommand = new RelayCommand<InputItemModel>(PlayFile, item => item?.IsCompleted == true);
         OpenFolderCommand = new RelayCommand<InputItemModel>(OpenFolder, item => item?.IsCompleted == true);
@@ -139,6 +232,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         IsConversionInProgress = true;
         StatusMessage = "Converting...";
+        _cts = new CancellationTokenSource();
 
         try
         {
@@ -150,32 +244,65 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
             foreach (var item in InputItems.ToArray())
             {
+                if (_cts.IsCancellationRequested)
+                    break;
+
                 item.Status = "Converting";
                 item.ErrorMessage = null;
                 item.Progress = 0;
 
-                var progressReporter = new Progress<double>(p => item.Progress = p);
-                var result = await converter.ConvertFileAsync(item.FilePath, SelectedFormat, progressReporter);
-                completed++;
+                try
+                {
+                    var progressReporter = new Progress<double>(p => item.Progress = p);
+                    var result = await converter.ConvertFileAsync(
+                        item.FilePath, 
+                        SelectedFormat, 
+                        SelectedBitrate, 
+                        IsMono, 
+                        Normalize, 
+                        progressReporter, 
+                        _cts.Token);
 
-                if (result.Successful)
-                {
-                    item.OutputPath = result.OutputPath;
-                    item.Status = "Done";
+                    if (result.Successful)
+                    {
+                        item.OutputPath = result.OutputPath;
+                        item.Status = "Done";
+                        completed++;
+                    }
+                    else
+                    {
+                        item.Status = "Failed";
+                        item.ErrorMessage = result.ErrorMessage;
+                        failed++;
+                    }
                 }
-                else
+                catch (OperationCanceledException)
                 {
+                    item.Status = "Cancelled";
                     failed++;
+                }
+                catch (Exception ex)
+                {
                     item.Status = "Failed";
-                    item.ErrorMessage = result.ErrorMessage;
+                    item.ErrorMessage = ex.Message;
+                    failed++;
                 }
 
                 StatusMessage = $"Converted {completed} of {InputItems.Count}.";
             }
 
-            StatusMessage = failed == 0
-                ? $"Finished {completed} file(s)."
-                : $"Finished with {failed} failed file(s).";
+            if (_cts.IsCancellationRequested)
+            {
+                StatusMessage = "Conversion cancelled.";
+            }
+            else
+            {
+                StatusMessage = failed == 0
+                    ? $"Finished {completed} file(s)."
+                    : $"Finished with {failed} failed/cancelled file(s).";
+
+                RunPostConversionAction();
+            }
         }
         catch (Exception ex)
         {
@@ -183,6 +310,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
         finally
         {
+            _cts.Dispose();
+            _cts = null;
             IsConversionInProgress = false;
         }
     }
@@ -264,11 +393,51 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    private void CancelConversion()
+    {
+        _cts?.Cancel();
+        StatusMessage = "Stopping...";
+    }
+
+    private void ClearCompleted()
+    {
+        var completedItems = InputItems.Where(item => item.IsCompleted).ToList();
+        foreach (var item in completedItems)
+        {
+            InputItems.Remove(item);
+        }
+        StatusMessage = $"Cleared {completedItems.Count} completed file(s).";
+    }
+
+    private void RunPostConversionAction()
+    {
+        switch (SelectedPostAction)
+        {
+            case "Play Sound":
+                System.Media.SystemSounds.Exclamation.Play();
+                break;
+            case "Open Folder":
+                try
+                {
+                    Process.Start("explorer.exe", TargetFolderPath);
+                }
+                catch
+                {
+                }
+                break;
+            case "None":
+            default:
+                break;
+        }
+    }
+
     private void RaiseCommandStatesChanged()
     {
         StartConversionCommand.RaiseCanExecuteChanged();
+        CancelConversionCommand.RaiseCanExecuteChanged();
         BrowseTargetFolderCommand.RaiseCanExecuteChanged();
         ClearItemsCommand.RaiseCanExecuteChanged();
+        ClearCompletedCommand.RaiseCanExecuteChanged();
         AddFilesCommand.RaiseCanExecuteChanged();
         RemoveItemCommand.RaiseCanExecuteChanged();
     }
