@@ -7,6 +7,17 @@ on:
       - 'v*'
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a GitHub Release?'
+        type: boolean
+        required: false
+        default: false
+      release_tag:
+        description: 'Release tag name (e.g. v1.0.0)'
+        type: string
+        required: false
 
 permissions:
   contents: write
@@ -69,9 +80,10 @@ jobs:
         path: ./AudioExtractor-CLI-win-x64.zip
 
     - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/v')
+      if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ github.event.inputs.release_tag || github.ref_name }}
         files: |
           ./AudioExtractor-GUI-win-x64.zip
           ./AudioExtractor-CLI-win-x64.zip
