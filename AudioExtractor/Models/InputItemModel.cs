@@ -16,13 +16,33 @@ public sealed class InputItemModel : INotifyPropertyChanged
     public string ContainerDirectory { get; set; } = string.Empty;
     public string FilePath { get; set; } = string.Empty;
     public long FileSize { get; set; }
-    public string? OutputPath { get; set; }
+    
+    private string? _outputPath;
+    public string? OutputPath
+    {
+        get => _outputPath;
+        set
+        {
+            if (SetProperty(ref _outputPath, value))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCompleted)));
+            }
+        }
+    }
 
     public string Status
     {
         get => _status;
-        set => SetProperty(ref _status, value);
+        set
+        {
+            if (SetProperty(ref _status, value))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCompleted)));
+            }
+        }
     }
+
+    public bool IsCompleted => Status == "Done" && !string.IsNullOrEmpty(OutputPath);
 
     public string? ErrorMessage
     {
@@ -45,12 +65,13 @@ public sealed class InputItemModel : INotifyPropertyChanged
         FileSize = fileInfo.Exists ? fileInfo.Length : 0;
     }
 
-    private void SetProperty<T>(ref T storage, T value, [CallerMemberName] string? propertyName = null)
+    private bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string? propertyName = null)
     {
         if (Equals(storage, value))
-            return;
+            return false;
 
         storage = value;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        return true;
     }
 }

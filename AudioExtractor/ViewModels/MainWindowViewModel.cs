@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Diagnostics;
 using AudioExtractor.Core;
 using AudioExtractor.Models;
 
@@ -26,6 +27,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public RelayCommand StartConversionCommand { get; }
     public RelayCommand BrowseTargetFolderCommand { get; }
     public RelayCommand ClearItemsCommand { get; }
+    public RelayCommand AddFilesCommand { get; }
+    public RelayCommand<InputItemModel> PlayFileCommand { get; }
 
     public bool IsConversionInProgress
     {
@@ -61,7 +64,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public MainWindowViewModel()
     {
         _settings = AppSettings.Load();
-        _targetFolderPath = _settings.TargetFolderPath;
+        _targetFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "AudioExtractor");
+        _settings.TargetFolderPath = _targetFolderPath;
+        _settings.Save();
 
         InputItems.CollectionChanged += (_, _) =>
         {
@@ -72,6 +77,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         StartConversionCommand = new RelayCommand(async () => await ConvertFilesAsync(), CanStartConversion);
         BrowseTargetFolderCommand = new RelayCommand(BrowseTargetFolder, () => !IsConversionInProgress);
         ClearItemsCommand = new RelayCommand(ClearItems, () => !IsConversionInProgress && InputItems.Count > 0);
+        AddFilesCommand = new RelayCommand(AddFiles, () => !IsConversionInProgress);
+        PlayFileCommand = new RelayCommand<InputItemModel>(PlayFile, item => item?.IsCompleted == true);
     }
 
     public void AddFileList(string[]? fileList)
@@ -186,11 +193,45 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         StatusMessage = "Drop video files to begin.";
     }
 
+    private void AddFiles()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Multiselect = true,
+            Filter = "Video Files (*.webm;*.mp4;*.mkv;*.mov;*.avi;*.m4v)|*.webm;*.mp4;*.mkv;*.mov;*.avi;*.m4v|All Files (*.*)|*.*",
+            Title = "Select Video Files to Convert"
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            AddFileList(dialog.FileNames);
+        }
+    }
+
+    private void PlayFile(InputItemModel item)
+    {
+        if (item == null || string.IsNullOrEmpty(item.OutputPath) || !File.Exists(item.OutputPath))
+            return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(item.OutputPath)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to play file: {ex.Message}";
+        }
+    }
+
     private void RaiseCommandStatesChanged()
     {
         StartConversionCommand.RaiseCanExecuteChanged();
         BrowseTargetFolderCommand.RaiseCanExecuteChanged();
         ClearItemsCommand.RaiseCanExecuteChanged();
+        AddFilesCommand.RaiseCanExecuteChanged();
     }
 
     private bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string? propertyName = null)

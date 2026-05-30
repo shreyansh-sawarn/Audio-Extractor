@@ -11,7 +11,7 @@ public sealed class AppSettings
         WriteIndented = true
     };
 
-    public string TargetFolderPath { get; set; } = Path.Combine(AppContext.BaseDirectory, "Output");
+    public string TargetFolderPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "AudioExtractor");
 
     private static string SettingsDirectory
     {
