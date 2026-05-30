@@ -27,6 +27,9 @@ public partial class MainWindow : Window
         // Initialize notification tray icon and hook up VM completion event
         InitializeTrayIcon();
         _viewModel.ConversionBatchCompleted += ViewModel_ConversionBatchCompleted;
+
+        Logger.Log("Audio Extractor UI application started.");
+        Task.Run(() => Logger.PurgeOldLogs());
     }
 
     private void InitializeTrayIcon()
@@ -43,6 +46,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to initialize Tray Icon: {ex.Message}");
+            Logger.LogError("Failed to initialize Tray Icon", ex);
         }
     }
 
@@ -56,10 +60,12 @@ public partial class MainWindow : Window
             : $"Completed: {completedCount} succeeded, {failedCount} failed/cancelled.";
 
         _notifyIcon.ShowBalloonTip(3000, title, message, System.Windows.Forms.ToolTipIcon.Info);
+        Logger.Log($"Tray notification shown: completed={completedCount}, failed={failedCount}");
     }
 
     protected override void OnClosed(EventArgs e)
     {
+        Logger.Log("Audio Extractor UI application closing.");
         if (_notifyIcon != null)
         {
             _notifyIcon.Visible = false;

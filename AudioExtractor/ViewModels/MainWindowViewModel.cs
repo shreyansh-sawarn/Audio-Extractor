@@ -176,6 +176,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
             _settings.TargetFolderPath = value;
             _settings.Save();
+            Logger.LogDirectory = Path.Combine(value, "logs");
         }
     }
 
@@ -190,6 +191,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _settings = AppSettings.Load();
         _targetFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "AudioExtractor");
         _settings.TargetFolderPath = _targetFolderPath;
+        Logger.LogDirectory = Path.Combine(_targetFolderPath, "logs");
         
         // Restore user settings
         _selectedBitrate = _settings.Bitrate;
@@ -283,11 +285,44 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         return !IsConversionInProgress && InputItems.Count > 0;
     }
 
+    private string ClassifyError(string rawError, string inputPath)
+    {
+        if (string.IsNullOrWhiteSpace(rawError))
+            return "Unknown error occurred.";
+
+        var lowerError = rawError.ToLowerInvariant();
+
+        if (lowerError.Contains("no longer exists"))
+            return "The input file was moved, renamed, or deleted before conversion could start.";
+
+        if (lowerError.Contains("ffmpeg was not found"))
+            return "FFmpeg executable is missing. Please check if ffmpeg is placed inside the '3rdparty' folder.";
+
+        if (lowerError.Contains("permission denied") || lowerError.Contains("access denied") || lowerError.Contains("access is denied"))
+            return "Access denied to target directory. Try choosing another output folder or running the app as administrator.";
+
+        if (lowerError.Contains("no space left") || lowerError.Contains("disk full"))
+            return "Your disk is full. Free up space and try again.";
+
+        if (lowerError.Contains("invalid data found") || lowerError.Contains("moov atom not found") || lowerError.Contains("invalid argument"))
+            return "Corrupted or unsupported input file. Ensure this file plays correctly in a media player.";
+
+        if (lowerError.Contains("invalid channel layout") || lowerError.Contains("loudnorm"))
+            return "FFmpeg parameter error. Try disabling 'Force Mono' or 'Normalize Volume' settings.";
+
+        if (lowerError.Contains("operation cancelled") || lowerError.Contains("cancelled"))
+            return "Conversion was cancelled by the user.";
+
+        return $"{rawError} (Check target folder and input file path)";
+    }
+
     private async Task ConvertFilesAsync()
     {
         IsConversionInProgress = true;
         StatusMessage = "Converting...";
         _cts = new CancellationTokenSource();
+
+        Logger.Log($"Batch conversion started. Files in queue: {InputItems.Count}. Settings: Format={SelectedFormat}, Bitrate={SelectedBitrate}, Mono={IsMono}, Normalize={Normalize}, MaxParallel={MaxParallelTasks}, Template={FilenameTemplate}, TargetFolder={TargetFolderPath}");
 
         try
         {
@@ -310,6 +345,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 {
                     item.Status = "Cancelled";
                     lock (lockObj) failed++;
+                    Logger.Log($"Conversion cancelled before starting for: {item.FilePath}");
                     return;
                 }
 
@@ -319,12 +355,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     {
                         item.Status = "Cancelled";
                         lock (lockObj) failed++;
+                        Logger.Log($"Conversion cancelled before starting for: {item.FilePath}");
                         return;
                     }
 
                     item.Status = "Converting";
                     item.ErrorMessage = null;
                     item.Progress = 0;
+
+                    Logger.Log($"Starting conversion for: {item.FilePath} | StartTime={item.StartTime}, EndTime={item.EndTime}");
 
                     var progressReporter = new Progress<double>(p => item.Progress = p);
                     var result = await converter.ConvertFileAsync(
@@ -343,30 +382,35 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     {
                         item.Status = "Cancelled";
                         lock (lockObj) failed++;
+                        Logger.Log($"Conversion cancelled for: {item.FilePath}");
                     }
                     else if (result.Successful)
                     {
                         item.OutputPath = result.OutputPath;
                         item.Status = "Done";
                         lock (lockObj) completed++;
+                        Logger.Log($"Successfully converted: {item.FilePath} -> {result.OutputPath}");
                     }
                     else
                     {
                         item.Status = "Failed";
-                        item.ErrorMessage = result.ErrorMessage;
+                        item.ErrorMessage = ClassifyError(result.ErrorMessage ?? string.Empty, item.FilePath);
                         lock (lockObj) failed++;
+                        Logger.LogError($"Failed converting: {item.FilePath} | Raw Error: {result.ErrorMessage} | Classified: {item.ErrorMessage}");
                     }
                 }
                 catch (OperationCanceledException)
                 {
                     item.Status = "Cancelled";
                     lock (lockObj) failed++;
+                    Logger.Log($"Conversion cancelled for: {item.FilePath}");
                 }
                 catch (Exception ex)
                 {
                     item.Status = "Failed";
-                    item.ErrorMessage = ex.Message;
+                    item.ErrorMessage = ClassifyError(ex.Message, item.FilePath);
                     lock (lockObj) failed++;
+                    Logger.LogError($"Exception during conversion of {item.FilePath}", ex);
                 }
                 finally
                 {
@@ -387,12 +431,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             if (_cts.IsCancellationRequested)
             {
                 StatusMessage = "Conversion cancelled.";
+                Logger.Log($"Batch conversion cancelled by user. Completed: {completed}, Failed/Cancelled: {failed}");
             }
             else
             {
                 StatusMessage = failed == 0
                     ? $"Finished {completed} file(s)."
                     : $"Finished with {failed} failed/cancelled file(s).";
+
+                Logger.Log($"Batch conversion completed. Successful: {completed}, Failed/Cancelled: {failed}");
 
                 RunPostConversionAction();
                 ConversionBatchCompleted?.Invoke(completed, failed);
@@ -401,15 +448,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         catch (OperationCanceledException)
         {
             StatusMessage = "Conversion cancelled.";
+            Logger.Log("Batch conversion task cancelled.");
         }
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
+            Logger.LogError("Exception in Batch conversion loop", ex);
         }
         finally
         {
-            _cts.Dispose();
-            _cts = null;
+            if (_cts != null)
+            {
+                _cts.Dispose();
+                _cts = null;
+            }
             IsConversionInProgress = false;
         }
     }
