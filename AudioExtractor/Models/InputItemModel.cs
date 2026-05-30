@@ -44,6 +44,13 @@ public sealed class InputItemModel : INotifyPropertyChanged
 
     public bool IsCompleted => Status == "Done" && !string.IsNullOrEmpty(OutputPath);
 
+    private double _progress;
+    public double Progress
+    {
+        get => _progress;
+        set => SetProperty(ref _progress, value);
+    }
+
     public string? ErrorMessage
     {
         get => _errorMessage;

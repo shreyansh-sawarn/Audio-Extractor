@@ -24,11 +24,22 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public ObservableCollection<InputItemModel> InputItems { get; } = new();
 
+    public string[] SupportedFormats { get; } = { "MP3", "M4A", "WAV", "FLAC" };
+
+    private string _selectedFormat = "MP3";
+    public string SelectedFormat
+    {
+        get => _selectedFormat;
+        set => SetProperty(ref _selectedFormat, value);
+    }
+
     public RelayCommand StartConversionCommand { get; }
     public RelayCommand BrowseTargetFolderCommand { get; }
     public RelayCommand ClearItemsCommand { get; }
     public RelayCommand AddFilesCommand { get; }
     public RelayCommand<InputItemModel> PlayFileCommand { get; }
+    public RelayCommand<InputItemModel> OpenFolderCommand { get; }
+    public RelayCommand<InputItemModel> RemoveItemCommand { get; }
 
     public bool IsConversionInProgress
     {
@@ -79,6 +90,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ClearItemsCommand = new RelayCommand(ClearItems, () => !IsConversionInProgress && InputItems.Count > 0);
         AddFilesCommand = new RelayCommand(AddFiles, () => !IsConversionInProgress);
         PlayFileCommand = new RelayCommand<InputItemModel>(PlayFile, item => item?.IsCompleted == true);
+        OpenFolderCommand = new RelayCommand<InputItemModel>(OpenFolder, item => item?.IsCompleted == true);
+        RemoveItemCommand = new RelayCommand<InputItemModel>(RemoveItem, item => !IsConversionInProgress);
     }
 
     public void AddFileList(string[]? fileList)
@@ -139,8 +152,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 item.Status = "Converting";
                 item.ErrorMessage = null;
+                item.Progress = 0;
 
-                var result = await converter.ConvertFileAsync(item.FilePath);
+                var progressReporter = new Progress<double>(p => item.Progress = p);
+                var result = await converter.ConvertFileAsync(item.FilePath, SelectedFormat, progressReporter);
                 completed++;
 
                 if (result.Successful)
@@ -226,12 +241,36 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    private void OpenFolder(InputItemModel item)
+    {
+        if (item == null || string.IsNullOrEmpty(item.OutputPath) || !File.Exists(item.OutputPath))
+            return;
+
+        try
+        {
+            Process.Start("explorer.exe", $"/select,\"{item.OutputPath}\"");
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to open folder: {ex.Message}";
+        }
+    }
+
+    private void RemoveItem(InputItemModel item)
+    {
+        if (item != null)
+        {
+            InputItems.Remove(item);
+        }
+    }
+
     private void RaiseCommandStatesChanged()
     {
         StartConversionCommand.RaiseCanExecuteChanged();
         BrowseTargetFolderCommand.RaiseCanExecuteChanged();
         ClearItemsCommand.RaiseCanExecuteChanged();
         AddFilesCommand.RaiseCanExecuteChanged();
+        RemoveItemCommand.RaiseCanExecuteChanged();
     }
 
     private bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string? propertyName = null)

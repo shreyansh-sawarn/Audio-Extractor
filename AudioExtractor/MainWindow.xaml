@@ -37,7 +37,8 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition MinWidth="60"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="40"/>
                         </Grid.ColumnDefinitions>
 
                         <Grid.RowDefinitions>
@@ -77,15 +78,61 @@
                             <TextBlock Text="{Binding ErrorMessage}" 
                                        Foreground="DarkRed"
                                        TextTrimming="CharacterEllipsis"/>
-                            <Button Content="Play Audio" 
-                                    Margin="0,4,0,0"
-                                    Padding="6,2"
-                                    FontSize="11"
-                                    HorizontalAlignment="Left"
-                                    Command="{Binding DataContext.PlayFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                    CommandParameter="{Binding}"
-                                    Visibility="{Binding IsCompleted, Converter={StaticResource BooleanVisibilityConverter}}"/>
+                            
+                            <!-- Progress Bar (Visible during conversion) -->
+                            <Grid Margin="0,4,0,0" Height="20">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Status}" Value="Converting">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100" Height="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding Progress, StringFormat={}{0:F0}%}" 
+                                           HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center" 
+                                           FontSize="10" 
+                                           FontWeight="Bold" 
+                                           Foreground="Black"/>
+                            </Grid>
+
+                            <!-- Play Audio and Open Folder Buttons (Visible when Completed) -->
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
+                                        Visibility="{Binding IsCompleted, Converter={StaticResource BooleanVisibilityConverter}}">
+                                <Button Content="Play" 
+                                        Padding="6,2"
+                                        FontSize="11"
+                                        Command="{Binding DataContext.PlayFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}"/>
+                                <Button Content="Open Folder" 
+                                        Margin="6,0,0,0"
+                                        Padding="6,2"
+                                        FontSize="11"
+                                        Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}"/>
+                            </StackPanel>
                         </StackPanel>
+
+                        <!-- Remove from List Button -->
+                        <Button Grid.Column="3" Grid.Row="0" Grid.RowSpan="2"
+                                Content="✕" 
+                                ToolTip="Remove from list"
+                                FontFamily="Segoe UI"
+                                FontSize="14"
+                                FontWeight="Bold"
+                                Foreground="DimGray"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Width="26" Height="26"
+                                Command="{Binding DataContext.RemoveItemCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                CommandParameter="{Binding}"
+                                IsEnabled="{Binding DataContext.IsConversionInProgress, RelativeSource={RelativeSource AncestorType=ListBox}, Converter={StaticResource InverseBooleanConverter}}"/>
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
@@ -109,6 +156,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" Grid.Row="0"
@@ -119,7 +167,19 @@
                 <Run Text="{Binding TargetFolderPath}"/>
             </TextBlock>
 
-            <Button Grid.Column="1" Grid.Row="0"
+            <StackPanel Grid.Column="1" Grid.Row="0" 
+                        Orientation="Horizontal" 
+                        Margin="16,0,8,8"
+                        VerticalAlignment="Center"
+                        IsEnabled="{Binding IsConversionInProgress, Converter={StaticResource InverseBooleanConverter}}">
+                <TextBlock Text="Format:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <ComboBox ItemsSource="{Binding SupportedFormats}" 
+                          SelectedItem="{Binding SelectedFormat}" 
+                          Width="70" Height="22" 
+                          VerticalContentAlignment="Center"/>
+            </StackPanel>
+
+            <Button Grid.Column="2" Grid.Row="0"
                     Margin="8,0,0,8"
                     MinWidth="90"
                     Content="Browse"
@@ -130,7 +190,7 @@
                        Text="{Binding StatusMessage}"
                        TextTrimming="CharacterEllipsis"/>
 
-            <StackPanel Grid.Column="1" Grid.Row="1" Orientation="Horizontal">
+            <StackPanel Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button MinWidth="90"
                         Content="Add Files"
                         Command="{Binding AddFilesCommand}"/>

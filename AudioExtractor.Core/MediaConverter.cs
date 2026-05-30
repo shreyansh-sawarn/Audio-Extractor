@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace AudioExtractor.Core;
 
@@ -19,7 +20,7 @@ public sealed class MediaConverter
 
     public bool IsFfmpegAvailable => File.Exists(_ffmpegPath) || _ffmpegPath == "ffmpeg";
 
-    public async Task<ConversionResult> ConvertFileAsync(string inputPath, CancellationToken cancellationToken = default)
+    public async Task<ConversionResult> ConvertFileAsync(string inputPath, string format = "mp3", IProgress<double>? progress = null, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(inputPath))
         {
@@ -33,7 +34,8 @@ public sealed class MediaConverter
             return ConversionResult.Failed(inputPath, string.Empty, $"ffmpeg was not found at '{_ffmpegPath}'.");
         }
 
-        var outputPath = CreateUniqueOutputPath(inputPath);
+        var ext = format.ToLowerInvariant();
+        var outputPath = CreateUniqueOutputPath(inputPath, ext);
         var startInfo = new ProcessStartInfo
         {
             FileName = _ffmpegPath,
@@ -48,17 +50,87 @@ public sealed class MediaConverter
         startInfo.ArgumentList.Add("-i");
         startInfo.ArgumentList.Add(inputPath);
         startInfo.ArgumentList.Add("-vn");
-        startInfo.ArgumentList.Add("-c:a");
-        startInfo.ArgumentList.Add("libmp3lame");
-        startInfo.ArgumentList.Add("-b:a");
-        startInfo.ArgumentList.Add("256k");
+
+        switch (ext)
+        {
+            case "m4a":
+                startInfo.ArgumentList.Add("-c:a");
+                startInfo.ArgumentList.Add("aac");
+                startInfo.ArgumentList.Add("-b:a");
+                startInfo.ArgumentList.Add("256k");
+                break;
+            case "wav":
+                startInfo.ArgumentList.Add("-c:a");
+                startInfo.ArgumentList.Add("pcm_s16le");
+                break;
+            case "flac":
+                startInfo.ArgumentList.Add("-c:a");
+                startInfo.ArgumentList.Add("flac");
+                break;
+            case "mp3":
+            default:
+                startInfo.ArgumentList.Add("-c:a");
+                startInfo.ArgumentList.Add("libmp3lame");
+                startInfo.ArgumentList.Add("-b:a");
+                startInfo.ArgumentList.Add("256k");
+                break;
+        }
+
         startInfo.ArgumentList.Add(outputPath);
 
         using var ffmpeg = new Process { StartInfo = startInfo };
         var output = new StringBuilder();
 
-        ffmpeg.OutputDataReceived += (_, e) => AppendLine(output, e.Data);
-        ffmpeg.ErrorDataReceived += (_, e) => AppendLine(output, e.Data);
+        double totalDurationSeconds = 0;
+        void HandleLine(string? line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            AppendLine(output, line);
+
+            // Parse total duration of source video
+            if (line.Contains("Duration:"))
+            {
+                var match = Regex.Match(line, @"Duration:\s*(\d+):(\d+):(\d+)(?:\.(\d+))?");
+                if (match.Success)
+                {
+                    var hours = double.Parse(match.Groups[1].Value);
+                    var minutes = double.Parse(match.Groups[2].Value);
+                    var seconds = double.Parse(match.Groups[3].Value);
+                    double centiseconds = 0;
+                    if (match.Groups.Count > 4 && match.Groups[4].Success && !string.IsNullOrEmpty(match.Groups[4].Value))
+                    {
+                        var valStr = match.Groups[4].Value;
+                        centiseconds = double.Parse(valStr) * Math.Pow(10, 2 - valStr.Length);
+                    }
+                    totalDurationSeconds = hours * 3600 + minutes * 60 + seconds + centiseconds / 100;
+                }
+            }
+            // Parse current conversion timestamp to calculate progress percentage
+            else if (line.Contains("time=") && totalDurationSeconds > 0)
+            {
+                var match = Regex.Match(line, @"time=\s*(\d+):(\d+):(\d+)(?:\.(\d+))?");
+                if (match.Success)
+                {
+                    var hours = double.Parse(match.Groups[1].Value);
+                    var minutes = double.Parse(match.Groups[2].Value);
+                    var seconds = double.Parse(match.Groups[3].Value);
+                    double centiseconds = 0;
+                    if (match.Groups.Count > 4 && match.Groups[4].Success && !string.IsNullOrEmpty(match.Groups[4].Value))
+                    {
+                        var valStr = match.Groups[4].Value;
+                        centiseconds = double.Parse(valStr) * Math.Pow(10, 2 - valStr.Length);
+                    }
+                    var currentSeconds = hours * 3600 + minutes * 60 + seconds + centiseconds / 100;
+                    var percentage = (currentSeconds / totalDurationSeconds) * 100;
+                    if (percentage > 100) percentage = 100;
+                    if (percentage < 0) percentage = 0;
+                    progress?.Report(percentage);
+                }
+            }
+        }
+
+        ffmpeg.OutputDataReceived += (_, e) => HandleLine(e.Data);
+        ffmpeg.ErrorDataReceived += (_, e) => HandleLine(e.Data);
 
         try
         {
@@ -79,6 +151,7 @@ public sealed class MediaConverter
 
         if (ffmpeg.ExitCode == 0 && File.Exists(outputPath))
         {
+            progress?.Report(100);
             return new ConversionResult
             {
                 InputPath = inputPath,
@@ -101,15 +174,15 @@ public sealed class MediaConverter
         return File.Exists(bundledPath) ? bundledPath : "ffmpeg";
     }
 
-    private string CreateUniqueOutputPath(string inputPath)
+    private string CreateUniqueOutputPath(string inputPath, string ext)
     {
         var baseName = Path.GetFileNameWithoutExtension(inputPath);
-        var outputPath = Path.Combine(_targetDirectory, $"{baseName}.mp3");
+        var outputPath = Path.Combine(_targetDirectory, $"{baseName}.{ext}");
         var index = 1;
 
         while (File.Exists(outputPath))
         {
-            outputPath = Path.Combine(_targetDirectory, $"{baseName} ({index}).mp3");
+            outputPath = Path.Combine(_targetDirectory, $"{baseName} ({index}).{ext}");
             index++;
         }
 
