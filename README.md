@@ -156,13 +156,20 @@ This mounts the local `./input` and `./output` directories to perform bulk conve
 
 ---
 
-## CI/CD Workflows
+## CI/CD & Repository Automation
 
-The repository uses automated GitHub Actions workflows for continuous integration and continuous deployment:
+The repository utilizes GitHub Actions and Dependabot to automate builds, code format checks, security scans, releases, and dependency management:
 
 1.  **.NET Build & Release (`desktop-build-release.yml`):**
-    *   Runs on every pull request and push to the `main` branch to verify the solution restores and compiles correctly.
-    *   When you tag a commit with `v*` (e.g., `v1.0.0`), the workflow automatically compiles self-contained binaries for the WPF GUI and CLI (win-x64), packages them as `.zip` archives, and creates a draft/public GitHub Release attaching the zipped builds.
+    *   Runs on every pull request and push to the `master` branch. Supports manual trigger (`workflow_dispatch`).
+    *   Builds, packages, and zips self-contained `win-x64` executables for both the WPF Desktop GUI and CLI applications.
+    *   Upon tagging a version (`v*`) or manual release request, it builds the release binaries and publishes them directly to GitHub Releases.
 2.  **Docker Build & Publish (`docker-publish.yml`):**
-    *   Triggers on PRs and commits to verify that the Docker image builds cleanly.
-    *   On branch updates or tag pushes, it builds the production Docker image and publishes it to the GitHub Container Registry (GHCR) at `ghcr.io/your-username/audio-extractor`.
+    *   Triggers on PRs and commits targeting the `master` branch, as well as manual runs.
+    *   Automatically builds and pushes the production-ready CLI Docker image to the GitHub Container Registry (GHCR) at `ghcr.io/your-username/audio-extractor`.
+3.  **Code Formatting Check (`code-format.yml`):**
+    *   Triggered on commits and PRs to `master` to verify C# code formatting (`dotnet format`) and ensure stylistic consistency.
+4.  **CodeQL Security Analysis (`codeql-analysis.yml`):**
+    *   Runs automated static analysis security scans (SAST) on a weekly schedule (every Monday) and on pushes/PRs to check for potential vulnerabilities and bugs.
+5.  **Dependabot updates (`dependabot.yml`):**
+    *   Monitors NuGet dependencies and GitHub Actions weekly, automatically creating pull requests when secure or updated library versions are released.
