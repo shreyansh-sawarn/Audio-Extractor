@@ -1,6 +1,9 @@
 # Audio Extractor
 
-Audio Extractor is a versatile, high-performance Windows and container-ready suite designed to extract high-quality audio streams from video files using the power of FFmpeg. It provides both a premium **WPF Desktop Graphical User Interface (GUI)** for Windows users and a lightweight, Docker-ready **Command-Line Interface (CLI)** for automated and bulk processing workflows.
+Audio Extractor is a versatile, high-performance suite designed to extract high-quality audio streams from video files using the power of FFmpeg. It provides:
+1. A premium, modern **Tauri Cross-Platform Desktop Companion (Windows, macOS, Linux)** built with React, Vite, and TypeScript.
+2. A premium **WPF Desktop Graphical User Interface (GUI)** for native Windows environments.
+3. A lightweight, Docker-ready **Command-Line Interface (CLI)** for automated and bulk processing workflows.
 
 ---
 
@@ -8,7 +11,14 @@ Audio Extractor is a versatile, high-performance Windows and container-ready sui
 
 The application has been enhanced with advanced media conversion capabilities, visual controls, and workflow automations:
 
-### 1. WPF Desktop Application (GUI)
+### 1. Tauri Cross-Platform Desktop Companion (GUI)
+*   **WASM Browser Fallback:** Converts video files under 150MB entirely inside the web browser view using FFmpeg WASM when running in web mode, requiring zero local installations.
+*   **System FFmpeg Integration:** Detects and triggers local system-installed FFmpeg binaries for files larger than 150MB or when running inside the desktop shell.
+*   **Full-Viewport Drag & Drop:** Drop videos anywhere on the window. Standard HTML5 file-drop APIs cleanly handle list reordering and queue loading.
+*   **Sequential/Parallel Conversion Queues:** Runs multiple extractions concurrently or sequentially according to preference settings.
+*   **Sleek Modern UI:** Vibrant HSL colors, responsive design, dark mode preference, and visual indicators.
+
+### 2. WPF Desktop Application (GUI)
 *   **Persistent Drag-and-Drop Queue:** Drop video files directly onto the interface. A persistent drop-zone overlay remains available at the bottom of the window so you can easily append more files at any time.
 *   **Format & Quality Selection:** 
     *   **Output Formats:** Select between `MP3`, `M4A`, `WAV`, or `FLAC`.
@@ -28,13 +38,13 @@ The application has been enhanced with advanced media conversion capabilities, v
 *   **Robust Error Classification:** If a conversion fails, the app inspects the FFmpeg stream to provide clear, human-readable troubleshooting tips (e.g., "Disk Full", "Access Denied", "Corrupted Input File", "Missing FFmpeg", "Invalid Parameters").
 *   **Persistent Preferences:** Output paths, theme, bitrate, parallel limit, and conversion configurations are automatically saved locally in `%APPDATA%/AudioExtractor/settings.json`.
 
-### 2. Command-Line Interface (CLI)
+### 3. Command-Line Interface (CLI)
 *   **Bulk Directory Scanning:** Point the CLI to single files or entire directories.
 *   **Recursive Operations:** Use the `-r` flag to recursively walk subdirectory trees and extract audio from all discovered videos.
 *   **Custom FFmpeg Paths:** Override the default environment path with a custom executable.
 *   **Docker Integration:** Optimized to run in headless container environments.
 
-### 3. Docker Deployment
+### 4. Docker Deployment
 *   **Containerized Processing:** Extract audio on non-Windows platforms (macOS, Linux) using Docker.
 *   **Ready-to-use Compose and Scripts:** Includes `docker-compose` and PowerShell helper scripts to make containerized conversions trivial.
 
@@ -51,8 +61,10 @@ The application filters and accepts the following common video containers out-of
 ## Requirements
 
 ### Local Build and Run
-*   **OS:** Windows 10/11 (required for the WPF GUI; CLI is cross-platform).
+*   **OS:** Windows 10/11 (required for native WPF GUI), macOS/Linux/Windows (supported for Tauri Desktop).
 *   **SDK:** [.NET 10 SDK](https://dotnet.microsoft.com/download)
+*   **Node.js:** v18+ (needed for compiling the Tauri frontend app).
+*   **Rust:** Stable Toolchain (needed for compiling the Tauri desktop backend binary).
 *   **FFmpeg:** Must be available either:
     *   On your system `PATH` (as `ffmpeg`), or
     *   Placed directly inside the build output directory under `AudioExtractor/3rdparty/ffmpeg.exe`.
@@ -64,23 +76,47 @@ The application filters and accepts the following common video containers out-of
 
 ## How to Easily Run the Applications
 
-### 1. Running the WPF Graphical User Interface (GUI)
+### 1. Running the Tauri Cross-Platform Companion (GUI)
 
-To compile and launch the Desktop GUI:
+To run the Tauri Desktop Application in development mode:
 
-1.  Open **Windows PowerShell** or **Command Prompt** in the project root folder.
-2.  Build the solution:
-    ```powershell
-    dotnet build AudioExtractor.sln
-    ```
-3.  Run the WPF application project:
-    ```powershell
-    dotnet run --project AudioExtractor
-    ```
+1. Navigate to the Tauri directory:
+   ```bash
+   cd AudioExtractor.Tauri
+   ```
+2. Install the required Node dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the development server and desktop app shell:
+   ```bash
+   npx @tauri-apps/cli dev
+   ```
+
+To compile a production build of the Tauri Desktop application:
+```bash
+npx @tauri-apps/cli build
+```
 
 ---
 
-### 2. Running the Command-Line Interface (CLI)
+### 2. Running the WPF Graphical User Interface (GUI)
+
+To compile and launch the Desktop GUI:
+
+1. Open **Windows PowerShell** or **Command Prompt** in the project root folder.
+2. Build the solution:
+   ```powershell
+   dotnet build AudioExtractor.sln
+   ```
+3. Run the WPF application project:
+   ```powershell
+   dotnet run --project AudioExtractor
+   ```
+
+---
+
+### 3. Running the Command-Line Interface (CLI)
 
 The CLI tool lets you run conversions quickly from your terminal:
 
@@ -104,7 +140,7 @@ dotnet run --project AudioExtractor.Cli -- --recursive --output ./MyAudioFiles .
 
 ---
 
-### 3. Running with Docker
+### 4. Running with Docker
 
 Docker allows you to run the CLI tool without needing .NET or FFmpeg installed on your machine.
 
@@ -147,12 +183,11 @@ This mounts the local `./input` and `./output` directories to perform bulk conve
 
 ## Project Directory Map
 
-*   [`AudioExtractor.Core/`](file:///c:/Users/shrey/OneDrive/Documents/Repos/Audio-Extractor/AudioExtractor.Core): Core engine containing `MediaConverter.cs` which manages the FFmpeg process, reports progress, and formats output filenames.
-*   [`AudioExtractor.Cli/`](file:///c:/Users/shrey/OneDrive/Documents/Repos/Audio-Extractor/AudioExtractor.Cli): Command-line entry point and argument parsing.
-*   [`AudioExtractor/`](file:///c:/Users/shrey/OneDrive/Documents/Repos/Audio-Extractor/AudioExtractor): Desktop UI application (WPF).
-    *   [`ViewModels/MainWindowViewModel.cs`](file:///c:/Users/shrey/OneDrive/Documents/Repos/Audio-Extractor/AudioExtractor/ViewModels/MainWindowViewModel.cs): Main view model orchestrating queue updates, parallel batch logic, error parsing, and options.
-    *   [`MainWindow.xaml`](file:///c:/Users/shrey/OneDrive/Documents/Repos/Audio-Extractor/AudioExtractor/MainWindow.xaml): Application UI layout (styles, overlays, progress bars, settings panels).
-*   [`scripts/`](file:///c:/Users/shrey/OneDrive/Documents/Repos/Audio-Extractor/scripts): Native scripts for building and executing Docker runs.
+*   [`AudioExtractor.Core/`](file:///C:/Users/shrey/Documents/Repos/Audio-Extractor/AudioExtractor.Core): Core engine containing `MediaConverter.cs` which manages the FFmpeg process, reports progress, and formats output filenames.
+*   [`AudioExtractor.Cli/`](file:///C:/Users/shrey/Documents/Repos/Audio-Extractor/AudioExtractor.Cli): Command-line entry point and argument parsing.
+*   [`AudioExtractor/`](file:///C:/Users/shrey/Documents/Repos/Audio-Extractor/AudioExtractor): Desktop UI application (WPF).
+*   [`AudioExtractor.Tauri/`](file:///C:/Users/shrey/Documents/Repos/Audio-Extractor/AudioExtractor.Tauri): Cross-platform desktop companion application using Tauri v2, React, Vite, and TS.
+*   [`scripts/`](file:///C:/Users/shrey/Documents/Repos/Audio-Extractor/scripts): Native scripts for building and executing Docker runs.
 
 ---
 
@@ -160,13 +195,16 @@ This mounts the local `./input` and `./output` directories to perform bulk conve
 
 The repository utilizes GitHub Actions and Dependabot to automate builds, code format checks, security scans, releases, and dependency management:
 
-1.  **.NET Build & Release (`desktop-build-release.yml`):**
+1.  **.NET & Tauri Build & Release (`desktop-build-release.yml`):**
     *   Runs on every pull request and push to the `master` branch. Supports manual trigger (`workflow_dispatch`).
     *   Builds, packages, and zips self-contained `win-x64` executables for both the WPF Desktop GUI and CLI applications.
+    *   Runs cross-platform Tauri builder matrix (macOS, Linux, Windows) to build native installer assets.
     *   Upon tagging a version (`v*`) or manual release request, it builds the release binaries and publishes them directly to GitHub Releases.
+    *   Includes a failsafe ancestry check verifying that releases can only be generated from tags cut off the `master` branch.
 2.  **Docker Build & Publish (`docker-publish.yml`):**
     *   Triggers on PRs and commits targeting the `master` branch, as well as manual runs.
     *   Automatically builds and pushes the production-ready CLI Docker image to the GitHub Container Registry (GHCR) at `ghcr.io/your-username/audio-extractor`.
+    *   Includes a failsafe ancestry check verifying that publication packages are only generated from tags cut off the `master` branch.
 3.  **Code Formatting Check (`code-format.yml`):**
     *   Triggered on commits and PRs to `master` to verify C# code formatting (`dotnet format`) and ensure stylistic consistency.
 4.  **CodeQL Security Analysis (`codeql-analysis.yml`):**

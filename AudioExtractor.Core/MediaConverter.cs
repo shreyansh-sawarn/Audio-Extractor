@@ -6,6 +6,11 @@ namespace AudioExtractor.Core;
 
 public sealed class MediaConverter
 {
+    /// <summary>
+    /// The canonical list of supported input container formats across all projects.
+    /// </summary>
+    public static readonly string[] SupportedExtensions = { "webm", "mp4", "mkv", "mov", "avi", "m4v" };
+
     private readonly string _targetDirectory;
     private readonly string _ffmpegPath;
 

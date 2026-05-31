@@ -9,13 +9,13 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
 using AudioExtractor.Core;
+using AudioExtractor.Infrastructure;
 using AudioExtractor.Models;
 
 namespace AudioExtractor.ViewModels;
 
 public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
-    private static readonly string[] SupportedExtensions = { "webm", "mp4", "mkv", "mov", "avi", "m4v" };
     private readonly AppSettings _settings;
     private bool _isConversionInProgress;
     private string _targetFolderPath;
@@ -234,7 +234,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var extension = Path.GetExtension(filePath).TrimStart('.');
 
             if (string.IsNullOrWhiteSpace(extension) ||
-                !SupportedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+                !MediaConverter.SupportedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
             {
                 skipped++;
                 continue;

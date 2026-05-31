@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace AudioExtractor;
+namespace AudioExtractor.Infrastructure;
 
 public sealed class AppSettings
 {

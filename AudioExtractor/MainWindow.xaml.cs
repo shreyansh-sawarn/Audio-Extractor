@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using AudioExtractor.Infrastructure;
 using AudioExtractor.ViewModels;
 
 namespace AudioExtractor;
@@ -23,6 +24,7 @@ public partial class MainWindow : Window
         // Intercept drag/drop events globally even if listbox items consume/handle them
         AddHandler(DragDrop.DragEnterEvent, new System.Windows.DragEventHandler(Window_DragEnter), true);
         AddHandler(DragDrop.DragOverEvent, new System.Windows.DragEventHandler(Window_DragOver), true);
+        AddHandler(DragDrop.DragLeaveEvent, new System.Windows.DragEventHandler(Window_DragLeave), true);
 
         // Initialize notification tray icon and hook up VM completion event
         InitializeTrayIcon();
@@ -184,7 +186,10 @@ public partial class MainWindow : Window
 
     private void Window_DragEnter(object sender, System.Windows.DragEventArgs e)
     {
-        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) && !_viewModel.IsConversionInProgress)
+        // Only show the overlay for external file drops — not for internal item reordering
+        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop)
+            && !e.Data.GetDataPresent(typeof(Models.InputItemModel))
+            && !_viewModel.IsConversionInProgress)
         {
             DragDropOverlay.Visibility = Visibility.Visible;
             e.Effects = System.Windows.DragDropEffects.Copy;
@@ -192,9 +197,21 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Window_DragLeave(object sender, System.Windows.DragEventArgs e)
+    {
+        // Hide overlay when the drag cursor leaves the window bounds
+        var pos = e.GetPosition(this);
+        if (pos.X < 0 || pos.Y < 0 || pos.X >= ActualWidth || pos.Y >= ActualHeight)
+        {
+            DragDropOverlay.Visibility = Visibility.Collapsed;
+        }
+    }
+
     private void Window_DragOver(object sender, System.Windows.DragEventArgs e)
     {
-        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) && !_viewModel.IsConversionInProgress)
+        if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop)
+            && !e.Data.GetDataPresent(typeof(Models.InputItemModel))
+            && !_viewModel.IsConversionInProgress)
         {
             e.Effects = System.Windows.DragDropEffects.Copy;
             e.Handled = true;
