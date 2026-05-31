@@ -140,7 +140,7 @@ jobs:
 
       - name: Install frontend dependencies
         run: |
-          cd web
+          cd AudioExtractor.Tauri
           npm install
 
       - name: Build Tauri App
@@ -152,4 +152,4 @@ jobs:
           releaseName: 'Audio Extractor ${{ github.event.inputs.release_tag || github.ref_name }}'
           releaseDraft: false
           prerelease: false
-          projectPath: './web'
+          projectPath: './AudioExtractor.Tauri'

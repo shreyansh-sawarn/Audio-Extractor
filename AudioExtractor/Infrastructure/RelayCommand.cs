@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Input;
 
-namespace AudioExtractor;
+namespace AudioExtractor.Infrastructure;
 
 public sealed class RelayCommand : ICommand
 {

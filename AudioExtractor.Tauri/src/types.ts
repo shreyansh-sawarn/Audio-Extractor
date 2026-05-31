@@ -29,3 +29,6 @@ export interface AppConfig {
   targetFolderPath: string;
   isDarkMode: boolean;
 }
+
+/// Canonical list of supported input container formats — mirrors MediaConverter.SupportedExtensions in Core.
+export const SUPPORTED_EXTENSIONS = ['webm', 'mp4', 'mkv', 'mov', 'avi', 'm4v'] as const;

@@ -96,7 +96,7 @@ static void PrintHelp()
 
 internal sealed class CliOptions
 {
-    public static readonly string[] SupportedExtensions = { "webm", "mp4", "mkv", "mov", "avi", "m4v" };
+    public static string[] SupportedExtensions => MediaConverter.SupportedExtensions;
 
     public string OutputDirectory { get; private init; } = GetDefaultOutputDirectory();
     public string? FfmpegPath { get; private init; }

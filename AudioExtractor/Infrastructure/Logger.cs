@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace AudioExtractor;
+namespace AudioExtractor.Infrastructure;
 
 public static class Logger
 {
