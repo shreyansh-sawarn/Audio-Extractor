@@ -25,6 +25,17 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Verify Tag is on Master Branch
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        git fetch origin master
+        if ! git branch -r --contains ${{ github.sha }} | grep -q "origin/master"; then
+          echo "Error: Tag was not cut from the master branch. Aborting publication."
+          exit 1
+        fi
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
